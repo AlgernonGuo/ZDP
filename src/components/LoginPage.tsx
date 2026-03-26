@@ -43,7 +43,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       }
     } catch (e) {
       console.error(e)
-      messageApi.error('网络错误，请确认 dev server 已启动')
+      messageApi.error('网络错误，请检查网络连接')
     } finally {
       setLoading(false)
     }
