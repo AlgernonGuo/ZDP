@@ -169,6 +169,7 @@ export interface OrderPayload {
 
 export interface CreateOrderResponse {
   result: boolean
+  errtype?: string | null
   errtext?: string | null
   data?: unknown
 }
