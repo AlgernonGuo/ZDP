@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 
 // ===== 运行时认证配置 =====
 // Cookie 由 document.cookie 管理（auth.ts 登录后写入），浏览器自动携带。
@@ -46,12 +47,19 @@ export function isAuthenticated(): boolean {
 
 // ===== axios 实例 =====
 // 开发时（Vite dev server）baseURL 为空，走 proxy；生产时（Tauri 桌面）直接请求后端
+// 生产环境用 tauri-plugin-http 的 fetch 替换全局 fetch，axios 走 Rust 层发请求，绕过 CORS
 const BASE_URL = import.meta.env.DEV ? '' : 'http://qaweixin.flsoft.cc'
+
+if (import.meta.env.PROD) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(globalThis as any).fetch = tauriFetch
+}
 
 const client = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
   withCredentials: true,
+  adapter: import.meta.env.PROD ? 'fetch' : 'xhr',
   headers: {
     'X-Requested-With': 'XMLHttpRequest',
   },
