@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   Button,
   InputNumber,
@@ -19,7 +19,7 @@ import { DeleteOutlined, SendOutlined, ThunderboltOutlined } from '@ant-design/i
 import { buildOrderPayload, createDeliveryApply } from '../api/order'
 import type { StagingItem } from '../types'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 const { TextArea } = Input
 
 interface StagingPanelProps {
@@ -50,6 +50,44 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
   const [snatchInterval, setSnatchInterval] = useState(300)
   const snatchStopRef = useRef(false)
   const snatchIntervalRef = useRef(300)
+  // 记录最新加入的 key，用于触发入场动画
+  const [newKey, setNewKey] = useState<string | null>(null)
+  const prevKeysRef = useRef<Set<string>>(new Set())
+  // 从空到有时，给列表容器加一次整体淡入
+  const [listAnimKey, setListAnimKey] = useState(0)
+  const wasEmptyRef = useRef(true)
+  const isInitialMountRef = useRef(true)
+
+  useEffect(() => {
+    const currentKeys = new Set(items.map((i) => i.key))
+
+    // 首次挂载时直接记录初始 keys，不触发任何动画
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false
+      prevKeysRef.current = currentKeys
+      if (currentKeys.size > 0) wasEmptyRef.current = false
+      return
+    }
+
+    // 空 → 有：列表整体入场
+    if (wasEmptyRef.current && currentKeys.size > 0) {
+      wasEmptyRef.current = false
+      setListAnimKey((k) => k + 1)
+    } else if (currentKeys.size === 0) {
+      wasEmptyRef.current = true
+    }
+
+    for (const key of currentKeys) {
+      if (!prevKeysRef.current.has(key)) {
+        setNewKey(key)
+        // 动画时长约 1100ms，结束后清除
+        const t = setTimeout(() => setNewKey(null), 1200)
+        prevKeysRef.current = currentKeys
+        return () => clearTimeout(t)
+      }
+    }
+    prevKeysRef.current = currentKeys
+  }, [items])
 
   const totalWeight = items.reduce((sum, item) => sum + item.userNum * item.NumWeight, 0)
   const totalAmount = items.reduce((sum, item) => sum + item.userNum * item.NumWeight * item.UPrice1, 0)
@@ -160,33 +198,24 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: '#fff',
-        borderLeft: '1px solid #f0f0f0',
       }}
     >
       {contextHolder}
 
-      {/* 标题栏 */}
-      <div
-        style={{
-          padding: '12px 16px',
-          borderBottom: '1px solid #f0f0f0',
-          background: '#fafafa',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexShrink: 0,
-        }}
-      >
-        <Title level={5} style={{ margin: 0 }}>
-          暂存区
-          {items.length > 0 && (
-            <Text type="secondary" style={{ fontSize: 13, fontWeight: 400, marginLeft: 8 }}>
-              ({items.length} 种货品)
-            </Text>
-          )}
-        </Title>
-        {items.length > 0 && (
+      {/* 状态条：仅有内容时显示 */}
+      {items.length > 0 && (
+        <div
+          style={{
+            padding: '10px 14px 8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+          }}
+        >
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            暂存区 · {items.length} 种货品
+          </Text>
           <Popconfirm
             title="清空所有暂存货品？"
             onConfirm={onClear}
@@ -195,11 +224,15 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
           >
             <Button type="text" danger size="small">清空</Button>
           </Popconfirm>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* 货品卡片列表 */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '8px 12px' }}>
+      <div
+        key={listAnimKey}
+        className={items.length > 0 ? 'staging-list' : undefined}
+        style={{ flex: 1, overflow: 'auto', padding: items.length > 0 ? '0 12px 8px' : '8px 12px' }}
+      >
         {items.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -210,12 +243,14 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
           items.map((item) => (
             <div
               key={item.key}
+              className={item.key === newKey ? 'staging-item-new' : undefined}
               style={{
-                border: '1px solid #f0f0f0',
-                borderRadius: 6,
+                borderRadius: 10,
                 padding: '10px 12px',
                 marginBottom: 8,
-                background: '#fafafa',
+                background: 'rgb(250,250,250)',
+                border: '1px solid rgba(0,0,0,0.09)',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
               }}
             >
               {/* 第一行：货名 + 删除 */}
@@ -251,7 +286,7 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
               <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
                 <Text style={{ fontSize: 12 }}>
                   <Text type="secondary" style={{ fontSize: 11 }}>单价 </Text>
-                  <Text style={{ color: '#cf1322', fontSize: 13 }}>{item.UPrice1.toFixed(2)}</Text>
+                  <Text style={{ color: '#e11d48', fontSize: 13 }}>{item.UPrice1.toFixed(2)}</Text>
                   <Text type="secondary" style={{ fontSize: 11 }}> 元/吨</Text>
                 </Text>
                 <Text style={{ fontSize: 12 }}>
@@ -295,10 +330,10 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
       {/* 汇总 + 提交区 */}
       {items.length > 0 && (
         <div
+          className="staging-footer"
           style={{
             padding: '12px 16px',
-            borderTop: '1px solid #f0f0f0',
-            background: '#fafafa',
+            borderTop: '1px solid rgba(0,0,0,0.06)',
             flexShrink: 0,
           }}
         >
@@ -314,12 +349,12 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
               <Statistic
                 title="预估金额(元)"
                 value={totalAmount.toFixed(2)}
-                valueStyle={{ fontSize: 16, color: '#cf1322' }}
+                valueStyle={{ fontSize: 18, color: '#e11d48' }}
               />
             </Col>
           </Row>
 
-          <Divider style={{ margin: '8px 0' }} />
+          <Divider style={{ margin: '12px 0' }} />
 
           <div style={{ marginBottom: 8 }}>
             <Text type="secondary" style={{ fontSize: 12 }}>整单备注</Text>
@@ -374,7 +409,7 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
           </div>
 
           {snatchMode && !snatching && (
-            <div style={{ marginBottom: 8, padding: '6px 10px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 4 }}>
+            <div style={{ marginBottom: 8, padding: '6px 10px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 10 }}>
               <Text style={{ fontSize: 12, color: '#ad6800' }}>
                 开启后将持续尝试下单，直到成功或遇到非时间限制的错误（如无货）
               </Text>

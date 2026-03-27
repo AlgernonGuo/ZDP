@@ -56,19 +56,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #e6f4ff 0%, #f0f5ff 100%)',
+        background: 'linear-gradient(145deg, #eff6ff 0%, #f0f9ff 45%, #f5f3ff 100%)',
       }}
     >
       {contextHolder}
       <Card
-        style={{ width: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }}
+        style={{ width: 400, boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06)' }}
         bordered={false}
       >
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <Title level={3} style={{ margin: 0, color: '#1677ff' }}>
+          <Title level={3} style={{ margin: 0, color: '#111827', fontWeight: 700 }}>
             ZDP 钢管管理系统
           </Title>
-          <Text type="secondary" style={{ fontSize: 13 }}>
+          <Text style={{ fontSize: 13, color: '#6b7280' }}>
             请使用手机号登录
           </Text>
         </div>
@@ -83,7 +83,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             ]}
           >
             <Input
-              prefix={<PhoneOutlined style={{ color: '#bfbfbf' }} />}
+              prefix={<PhoneOutlined style={{ color: '#9ca3af' }} />}
               placeholder="13xxxxxxxxx"
               size="large"
               maxLength={11}
@@ -96,14 +96,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             rules={[{ required: true, message: '请输入密码' }]}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
+              prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
               placeholder="请输入密码"
               size="large"
             />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0, marginTop: 4 }}>
-            <Button type="primary" htmlType="submit" size="large" block loading={loading}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
+              block
+              loading={loading}
+              style={{ fontWeight: 500, letterSpacing: '0.02em' }}
+            >
               登录
             </Button>
           </Form.Item>

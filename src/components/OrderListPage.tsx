@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Table,
   Tag,
@@ -10,8 +10,6 @@ import {
   Tooltip,
   DatePicker,
   Input,
-  Row,
-  Col,
   Statistic,
   Drawer,
   Descriptions,
@@ -78,7 +76,7 @@ const LINE_COLUMNS: ColumnsType<DeliveryApplyLineItem> = [
   { title: '备注', dataIndex: 'Memo', width: 100, ellipsis: true },
 ]
 
-export default function OrderListPage() {
+export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
   const [data, setData] = useState<OrderListItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -136,6 +134,17 @@ export default function OrderListPage() {
   useEffect(() => {
     load(1, '', '', [null, null], 20)
   }, [load])
+
+  // 切换到本页时刷新（跳过初次挂载，初次由上面的 effect 处理）
+  const isInitialMountRef = useRef(true)
+  useEffect(() => {
+    if (isInitialMountRef.current) { isInitialMountRef.current = false; return }
+    setMaker('')
+    setStatus('')
+    setDateRange([null, null])
+    setPage(1)
+    load(1, '', '', [null, null], pageSize)
+  }, [refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = () => {
     setPage(1)
@@ -270,71 +279,78 @@ export default function OrderListPage() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 16, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '16px 16px 0', overflow: 'hidden' }}>
       {/* 筛选栏 */}
-      <div style={{ marginBottom: 12, flexShrink: 0 }}>
-        <Row gutter={12} align="middle" wrap={false}>
-          <Col>
-            <Input
-              placeholder="制单人"
-              value={maker}
-              onChange={(e) => setMaker(e.target.value)}
-              style={{ width: 120 }}
-              allowClear
-              onPressEnter={handleSearch}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-end',
+          gap: 10,
+          flexWrap: 'wrap',
+          flexShrink: 0,
+          paddingBottom: 14,
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>制单人</Text>
+          <Input
+            placeholder="输入制单人"
+            value={maker}
+            onChange={(e) => setMaker(e.target.value)}
+            style={{ width: 140 }}
+            allowClear
+            onPressEnter={handleSearch}
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>状态</Text>
+          <Select
+            value={status}
+            onChange={setStatus}
+            options={STATUS_OPTIONS}
+            style={{ width: 130 }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>日期范围</Text>
+          <RangePicker
+            value={dateRange}
+            onChange={(v) => setDateRange(v ?? [null, null])}
+            style={{ width: 220 }}
+            placeholder={['开始日期', '结束日期']}
+          />
+        </div>
+
+        <Space size={8}>
+          <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>查询</Button>
+          <Button onClick={handleReset}>重置</Button>
+          <Tooltip title="刷新">
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => load(page, maker, status, dateRange, pageSize)}
+              loading={loading}
             />
-          </Col>
-          <Col>
-            <Select
-              value={status}
-              onChange={setStatus}
-              options={STATUS_OPTIONS}
-              style={{ width: 130 }}
+          </Tooltip>
+        </Space>
+
+        {data.length > 0 && (
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 24, alignItems: 'flex-end' }}>
+            <Statistic
+              title="本页总重(吨)"
+              value={totalQty.toFixed(3)}
+              valueStyle={{ fontSize: 14 }}
             />
-          </Col>
-          <Col>
-            <RangePicker
-              value={dateRange}
-              onChange={(v) => setDateRange(v ?? [null, null])}
-              style={{ width: 220 }}
-              placeholder={['开始日期', '结束日期']}
+            <Statistic
+              title="本页总金额(元)"
+              value={totalMoney.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+              valueStyle={{ fontSize: 14, color: '#1677ff' }}
             />
-          </Col>
-          <Col>
-            <Space>
-              <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-                查询
-              </Button>
-              <Button onClick={handleReset}>重置</Button>
-              <Tooltip title="刷新">
-                <Button
-                  icon={<ReloadOutlined />}
-                  onClick={() => load(page, maker, status, dateRange, pageSize)}
-                  loading={loading}
-                />
-              </Tooltip>
-            </Space>
-          </Col>
-          <Col flex="auto" />
-          {data.length > 0 && (
-            <>
-              <Col>
-                <Statistic
-                  title="本页总重(吨)"
-                  value={totalQty.toFixed(3)}
-                  valueStyle={{ fontSize: 14 }}
-                />
-              </Col>
-              <Col>
-                <Statistic
-                  title="本页总金额(元)"
-                  value={totalMoney.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
-                  valueStyle={{ fontSize: 14, color: '#1677ff' }}
-                />
-              </Col>
-            </>
-          )}
-        </Row>
+          </div>
+        )}
       </div>
 
       {error && (

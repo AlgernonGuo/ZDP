@@ -114,7 +114,7 @@ export default function EditOrderModal({ record, onClose, onSuccess }: EditOrder
           </div>
 
           {/* 右：暂存区（预填当前订单货品） */}
-          <div style={{ width: 480, flexShrink: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: 480, flexShrink: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderLeft: '1px solid rgba(0,0,0,0.06)' }}>
             <StagingPanel
               items={stagingItems}
               onUpdateItem={handleUpdateItem}

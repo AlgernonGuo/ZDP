@@ -4,11 +4,11 @@ import {
   Button,
   Table,
   message,
-  Space,
   Typography,
   Spin,
+  Tooltip,
 } from 'antd'
-import { SearchOutlined, PlusOutlined } from '@ant-design/icons'
+import { SearchOutlined, PlusOutlined, CheckCircleFilled } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { getCustomerList, getInventoryClassList, getOnLineStockList, getOnLineStockDetail } from '../api/inventory'
 import { setAuthConfig, AUTH_CONFIG } from '../api/client'
@@ -337,23 +337,26 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
     {
       title: '操作',
       key: 'action',
-      width: 90,
+      width: 52,
       align: 'center',
       render: (_: unknown, record) => {
         const key = String(record.AutoID)
         const isInStaging = stagingKeys.has(key)
         const isAdding = addingKeys.has(key)
-        return (
-          <Button
-            type="primary"
-            size="small"
-            icon={<PlusOutlined />}
-            loading={isAdding}
-            disabled={isInStaging}
-            onClick={() => handleAddToStaging(record)}
-          >
-            {isInStaging ? '已加入' : '加入'}
-          </Button>
+        return isInStaging ? (
+          <Tooltip title="已在暂存区">
+            <CheckCircleFilled style={{ color: '#52c41a', fontSize: 20 }} />
+          </Tooltip>
+        ) : (
+          <Tooltip title="加入暂存区">
+            <Button
+              type="primary"
+              size="small"
+              icon={<PlusOutlined />}
+              loading={isAdding}
+              onClick={() => handleAddToStaging(record)}
+            />
+          </Tooltip>
         )
       },
     },
@@ -364,11 +367,22 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
       {contextHolder}
 
       {/* 筛选区 */}
-      <div style={{ padding: '16px 16px 0', background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
-        <Space wrap>
+      <div
+        style={{
+          padding: '14px 16px 12px',
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'flex-end',
+          gap: 10,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>客户</Text>
           <Select
             placeholder="选择客户"
-            style={{ width: 240 }}
+            style={{ width: 200 }}
             value={selectedCusCode || undefined}
             onChange={handleCusChange}
             loading={customerLoading}
@@ -379,10 +393,13 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
               label: c.CusName || c.CusCode,
             }))}
           />
+        </div>
 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>品种</Text>
           <Select
             placeholder="选择品种"
-            style={{ width: 180 }}
+            style={{ width: 160 }}
             value={selectedClass || undefined}
             onChange={handleClassChange}
             loading={classLoading}
@@ -391,10 +408,13 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
             disabled={!selectedCusCode}
             options={classList.map((c) => ({ value: c.InvCName, label: c.InvCName }))}
           />
+        </div>
 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>规格</Text>
           <Select
             placeholder="选择规格"
-            style={{ width: 180 }}
+            style={{ width: 160 }}
             value={selectedStandard || undefined}
             onChange={handleStandardChange}
             disabled={!selectedCusCode || !selectedClass}
@@ -402,10 +422,13 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
             optionFilterProp="label"
             options={standards.map((s) => ({ value: s, label: s }))}
           />
+        </div>
 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>壁厚</Text>
           <Select
-            placeholder="选择壁厚（可选）"
-            style={{ width: 160 }}
+            placeholder="可选"
+            style={{ width: 110 }}
             value={selectedWallThickness || undefined}
             onChange={handleWallThicknessChange}
             disabled={!selectedCusCode || wallThicknesses.length === 0}
@@ -413,17 +436,17 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
             onClear={() => handleWallThicknessChange('')}
             options={wallThicknesses.map((wt) => ({ value: wt, label: wt }))}
           />
+        </div>
 
-          <Button
-            type="primary"
-            icon={<SearchOutlined />}
-            onClick={handleSearch}
-            loading={searching}
-            disabled={!selectedCusCode || !selectedClass || !selectedStandard}
-          >
-            查询库存
-          </Button>
-        </Space>
+        <Button
+          type="primary"
+          icon={<SearchOutlined />}
+          onClick={handleSearch}
+          loading={searching}
+          disabled={!selectedCusCode || !selectedClass || !selectedStandard}
+        >
+          查询库存
+        </Button>
       </div>
 
       {/* 结果表格 */}

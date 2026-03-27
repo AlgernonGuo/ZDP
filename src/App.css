@@ -7,31 +7,84 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, 'Noto Sans', 'PingFang SC', 'Microsoft YaHei',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* antd 表格紧凑样式补丁 */
-.ant-table-wrapper .ant-table-small .ant-table-thead > tr > th {
-  background: #f5f5f5;
+/* 表格 header 字重精调 */
+.ant-table-wrapper .ant-table-thead > tr > th {
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.02em;
 }
 
-/* 左侧面板滚动区域 */
+/* 滚动条 */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+  background: rgba(0,0,0,0.15);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: rgba(0,0,0,0.25);
+}
+
+/* 暂存区卡片入场动画 */
+@keyframes staging-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 新加入时的高亮脉冲 */
+@keyframes staging-item-highlight {
+  0%   { box-shadow: 0 0 0 0 rgba(22, 119, 255, 0.45); border-color: #1677ff; background: #eff6ff; }
+  60%  { box-shadow: 0 0 0 5px rgba(22, 119, 255, 0);  border-color: #93c5fd; background: #f0f9ff; }
+  100% { box-shadow: 0 1px 4px rgba(0,0,0,0.08);       border-color: rgba(0,0,0,0.09); background: rgb(250,250,250); }
+}
+
+.staging-item-new {
+  animation:
+    staging-item-enter 0.22s cubic-bezier(0.34, 1.3, 0.64, 1) both,
+    staging-item-highlight 0.85s ease 0.15s both;
+}
+
+/* 底部汇总+提交区入场动画 */
+@keyframes staging-footer-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.staging-footer {
+  animation: staging-footer-enter 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 卡片列表区从 Empty 切换到列表时的淡入 */
+@keyframes staging-list-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.staging-list {
+  animation: staging-list-enter 0.2s ease both;
 }
