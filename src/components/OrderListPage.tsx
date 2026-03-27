@@ -17,6 +17,7 @@ import {
   Select,
   Popconfirm,
   message,
+  Grid,
 } from 'antd'
 import { ReloadOutlined, SearchOutlined, FileTextOutlined, StopOutlined, EditOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
@@ -77,6 +78,7 @@ const LINE_COLUMNS: ColumnsType<DeliveryApplyLineItem> = [
 ]
 
 export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
+  const screens = Grid.useBreakpoint()
   const [data, setData] = useState<OrderListItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -279,7 +281,7 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '16px 16px 0', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: screens.sm ? '16px 16px 0' : '10px 10px 0', overflow: 'hidden' }}>
       {/* 筛选栏 */}
       <div
         style={{
@@ -287,40 +289,41 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
           alignItems: 'flex-end',
           gap: 10,
           flexWrap: 'wrap',
+          rowGap: 8,
           flexShrink: 0,
           paddingBottom: 14,
           borderBottom: '1px solid rgba(0,0,0,0.06)',
           marginBottom: 16,
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 140px', minWidth: 120 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>制单人</Text>
           <Input
             placeholder="输入制单人"
             value={maker}
             onChange={(e) => setMaker(e.target.value)}
-            style={{ width: 140 }}
+            style={{ width: '100%' }}
             allowClear
             onPressEnter={handleSearch}
           />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 140px', minWidth: 120 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>状态</Text>
           <Select
             value={status}
             onChange={setStatus}
             options={STATUS_OPTIONS}
-            style={{ width: 130 }}
+            style={{ width: '100%' }}
           />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 220px', minWidth: 170 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>日期范围</Text>
           <RangePicker
             value={dateRange}
             onChange={(v) => setDateRange(v ?? [null, null])}
-            style={{ width: 220 }}
+            style={{ width: '100%' }}
             placeholder={['开始日期', '结束日期']}
           />
         </div>
@@ -338,7 +341,7 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
         </Space>
 
         {data.length > 0 && (
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 24, alignItems: 'flex-end' }}>
+          <div style={{ marginLeft: screens.md ? 'auto' : 0, display: 'flex', gap: screens.sm ? 24 : 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <Statistic
               title="本页总重(吨)"
               value={totalQty.toFixed(3)}
@@ -399,10 +402,10 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
           ) : null
         }
         placement="right"
-        width={780}
+        width={screens.lg ? 780 : 'min(780px, calc(100vw - 16px))'}
         open={drawerRecord !== null}
         onClose={() => setDrawerRecord(null)}
-        styles={{ body: { padding: '16px 24px' } }}
+        styles={{ body: { padding: screens.sm ? '16px 24px' : '12px 12px' } }}
       >
         {drawerRecord && (
           <>

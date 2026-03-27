@@ -7,6 +7,7 @@ import {
   Typography,
   Spin,
   Tooltip,
+  Grid,
 } from 'antd'
 import { SearchOutlined, PlusOutlined, CheckCircleFilled } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
@@ -25,6 +26,7 @@ interface SearchPanelProps {
 }
 
 const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, onCusChange }) => {
+  const screens = Grid.useBreakpoint()
   const [messageApi, contextHolder] = message.useMessage()
 
   // 客户列表
@@ -376,13 +378,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
           alignItems: 'flex-end',
           gap: 10,
           flexWrap: 'wrap',
+          rowGap: 8,
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 220px', minWidth: 160 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>客户</Text>
           <Select
             placeholder="选择客户"
-            style={{ width: 200 }}
+            style={{ width: '100%' }}
             value={selectedCusCode || undefined}
             onChange={handleCusChange}
             loading={customerLoading}
@@ -395,11 +398,11 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
           />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 160px', minWidth: 130 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>品种</Text>
           <Select
             placeholder="选择品种"
-            style={{ width: 160 }}
+            style={{ width: '100%' }}
             value={selectedClass || undefined}
             onChange={handleClassChange}
             loading={classLoading}
@@ -410,11 +413,11 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
           />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 160px', minWidth: 130 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>规格</Text>
           <Select
             placeholder="选择规格"
-            style={{ width: 160 }}
+            style={{ width: '100%' }}
             value={selectedStandard || undefined}
             onChange={handleStandardChange}
             disabled={!selectedCusCode || !selectedClass}
@@ -424,11 +427,11 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
           />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 120px', minWidth: 100 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>壁厚</Text>
           <Select
             placeholder="可选"
-            style={{ width: 110 }}
+            style={{ width: '100%' }}
             value={selectedWallThickness || undefined}
             onChange={handleWallThicknessChange}
             disabled={!selectedCusCode || wallThicknesses.length === 0}
@@ -444,13 +447,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
           onClick={handleSearch}
           loading={searching}
           disabled={!selectedCusCode || !selectedClass || !selectedStandard}
+          style={{ width: screens.sm ? 'auto' : '100%' }}
         >
           查询库存
         </Button>
       </div>
 
       {/* 结果表格 */}
-      <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: screens.sm ? 16 : 10 }}>
         {searching ? (
           <div style={{ textAlign: 'center', paddingTop: 60 }}>
             <Spin size="large" tip="查询中..." />

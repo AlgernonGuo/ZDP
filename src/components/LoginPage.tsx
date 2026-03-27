@@ -52,16 +52,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   return (
     <div
       style={{
-        height: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(145deg, #eff6ff 0%, #f0f9ff 45%, #f5f3ff 100%)',
+        padding: 16,
       }}
     >
       {contextHolder}
       <Card
-        style={{ width: 400, boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06)' }}
+        style={{ width: 'min(400px, calc(100vw - 32px))', boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06)' }}
         bordered={false}
       >
         <div style={{ textAlign: 'center', marginBottom: 28 }}>

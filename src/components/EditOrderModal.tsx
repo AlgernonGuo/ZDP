@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Modal, Typography, Tag } from 'antd'
+import { Modal, Typography, Tag, Grid } from 'antd'
 import SearchPanel from './SearchPanel'
 import StagingPanel from './StagingPanel'
 import type { OrderListItem, StagingItem } from '../types'
@@ -45,6 +45,7 @@ function lineItemsToStaging(record: OrderListItem): StagingItem[] {
 }
 
 export default function EditOrderModal({ record, onClose, onSuccess }: EditOrderModalProps) {
+  const screens = Grid.useBreakpoint()
   const [stagingItems, setStagingItems] = useState<StagingItem[]>([])
 
   // 每次打开（record 变化）时重置暂存区
@@ -87,9 +88,9 @@ export default function EditOrderModal({ record, onClose, onSuccess }: EditOrder
       open={record !== null}
       onCancel={onClose}
       footer={null}
-      width="90vw"
-      style={{ top: 16 }}
-      styles={{ body: { height: 'calc(100vh - 120px)', padding: 0, display: 'flex', flexDirection: 'column' } }}
+      width={screens.lg ? '90vw' : '96vw'}
+      style={{ top: screens.sm ? 16 : 8 }}
+      styles={{ body: { height: screens.sm ? 'calc(100dvh - 120px)' : 'calc(100dvh - 72px)', padding: 0, display: 'flex', flexDirection: 'column' } }}
       title={
         record && (
           <span>
@@ -103,7 +104,7 @@ export default function EditOrderModal({ record, onClose, onSuccess }: EditOrder
       destroyOnClose
     >
       {record && (
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: '100%' }}>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: '100%', flexDirection: screens.lg ? 'row' : 'column' }}>
           {/* 左：查询新增货品 */}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <SearchPanel
@@ -114,7 +115,19 @@ export default function EditOrderModal({ record, onClose, onSuccess }: EditOrder
           </div>
 
           {/* 右：暂存区（预填当前订单货品） */}
-          <div style={{ width: 480, flexShrink: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderLeft: '1px solid rgba(0,0,0,0.06)' }}>
+          <div
+            style={{
+              width: screens.lg ? 'clamp(360px, 33vw, 520px)' : '100%',
+              height: screens.lg ? '100%' : '46%',
+              minHeight: screens.lg ? 0 : 260,
+              flexShrink: 0,
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              borderLeft: screens.lg ? '1px solid rgba(0,0,0,0.06)' : 'none',
+              borderTop: screens.lg ? 'none' : '1px solid rgba(0,0,0,0.06)',
+            }}
+          >
             <StagingPanel
               items={stagingItems}
               onUpdateItem={handleUpdateItem}

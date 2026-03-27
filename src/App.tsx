@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Layout, Typography, Button, Tooltip, Menu, ConfigProvider, Popover } from 'antd'
+import { Layout, Typography, Button, Tooltip, Menu, ConfigProvider, Popover, Grid, Segmented } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import 'dayjs/locale/zh-cn'
 import dayjs from 'dayjs'
@@ -19,6 +19,7 @@ const { Title, Text } = Typography
 
 type PageKey = 'create-order' | 'order-list'
 type FontPresetKey = 'compact' | 'standard' | 'comfortable' | 'large'
+type MobileCreatePane = 'search' | 'staging'
 
 interface FontPreset {
   key: FontPresetKey
@@ -57,6 +58,7 @@ function getInitialPage(): PageKey {
 }
 
 function App() {
+  const screens = Grid.useBreakpoint()
   const [authed, setAuthed] = useState<boolean>(isAuthenticated)
   const [cusName, setCusName] = useState(AUTH_CONFIG.CusName)
   const [cusCode, setCusCode] = useState(AUTH_CONFIG.CusCode)
@@ -64,8 +66,11 @@ function App() {
   const [activePage, setActivePage] = useState<PageKey>(getInitialPage)
   const [orderListRefreshKey, setOrderListRefreshKey] = useState(0)
   const [fontPresetKey, setFontPresetKey] = useState<FontPresetKey>(getInitialPreset)
+  const [mobileCreatePane, setMobileCreatePane] = useState<MobileCreatePane>('search')
 
   const preset = FONT_PRESETS.find((p) => p.key === fontPresetKey) ?? FONT_PRESETS[1]
+  const isNarrowLayout = !screens.lg
+  const isCompactHeader = !screens.md
 
   const handleFontPreset = (key: FontPresetKey) => {
     setFontPresetKey(key)
@@ -178,22 +183,22 @@ function App() {
         },
       }}
     >
-      <Layout style={{ height: '100vh', overflow: 'hidden' }}>
+      <Layout style={{ minHeight: '100vh', height: '100dvh', overflow: 'hidden' }}>
       {/* 顶部 Header */}
-      <Header
-        style={{
-          background: '#fff',
-          padding: '0 24px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 24,
-          flexShrink: 0,
-          borderBottom: '1px solid rgba(0,0,0,0.08)',
-        }}
-      >
-        <Title level={4} style={{ color: '#1677ff', margin: 0, whiteSpace: 'nowrap', letterSpacing: '0.01em' }}>
-          ZDP 钢管库存系统
-        </Title>
+        <Header
+          style={{
+            background: '#fff',
+            padding: isCompactHeader ? '0 12px' : '0 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: isCompactHeader ? 10 : 24,
+            flexShrink: 0,
+            borderBottom: '1px solid rgba(0,0,0,0.08)',
+          }}
+        >
+          <Title level={4} style={{ color: '#1677ff', margin: 0, whiteSpace: 'nowrap', letterSpacing: '0.01em' }}>
+          {screens.sm ? 'ZDP 钢管库存系统' : 'ZDP'}
+          </Title>
 
         {/* 导航菜单 */}
         <Menu
@@ -217,12 +222,28 @@ function App() {
         {/* 用户信息 + 退出 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           {AUTH_CONFIG.UserName && (
-            <Text style={{ color: 'rgba(0,0,0,0.4)', fontSize: 14 }}>
+            <Text
+              ellipsis
+              style={{
+                color: 'rgba(0,0,0,0.4)',
+                fontSize: isCompactHeader ? 12 : 14,
+                maxWidth: screens.xl ? 180 : 100,
+                display: 'inline-block',
+              }}
+            >
               {AUTH_CONFIG.UserName}
             </Text>
           )}
           {cusName && (
-            <Text style={{ color: 'rgba(0,0,0,0.65)', fontSize: 14 }}>
+            <Text
+              ellipsis
+              style={{
+                color: 'rgba(0,0,0,0.65)',
+                fontSize: isCompactHeader ? 12 : 14,
+                maxWidth: screens.xl ? 220 : 130,
+                display: 'inline-block',
+              }}
+            >
               {cusName}（{cusCode}）
             </Text>
           )}
@@ -295,14 +316,37 @@ function App() {
             display: activePage === 'create-order' ? 'flex' : 'none',
             flex: 1,
             overflow: 'hidden',
+            minHeight: 0,
+            flexDirection: isNarrowLayout ? 'column' : 'row',
           }}
         >
+          {isNarrowLayout && (
+            <div
+              style={{
+                padding: '8px 10px',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
+                flexShrink: 0,
+                background: '#fff',
+              }}
+            >
+              <Segmented
+                block
+                value={mobileCreatePane}
+                onChange={(value) => setMobileCreatePane(value as MobileCreatePane)}
+                options={[
+                  { label: '查询库存', value: 'search' },
+                  { label: `暂存区（${stagingItems.length}）`, value: 'staging' },
+                ]}
+              />
+            </div>
+          )}
           <div
             style={{
               flex: 1,
               overflow: 'hidden',
-              display: 'flex',
+              display: !isNarrowLayout || mobileCreatePane === 'search' ? 'flex' : 'none',
               flexDirection: 'column',
+              minHeight: 0,
             }}
           >
             <SearchPanel
@@ -313,12 +357,16 @@ function App() {
           </div>
           <div
             style={{
-              width: 480,
+              width: isNarrowLayout ? '100%' : 'clamp(360px, 33vw, 520px)',
+              height: isNarrowLayout ? '100%' : '100%',
+              flex: isNarrowLayout ? 1 : undefined,
               flexShrink: 0,
               overflow: 'hidden',
-              display: 'flex',
+              display: !isNarrowLayout || mobileCreatePane === 'staging' ? 'flex' : 'none',
               flexDirection: 'column',
-              borderLeft: '1px solid rgba(0,0,0,0.06)',
+              minHeight: 0,
+              borderLeft: isNarrowLayout ? 'none' : '1px solid rgba(0,0,0,0.06)',
+              borderTop: 'none',
             }}
           >
             <StagingPanel
