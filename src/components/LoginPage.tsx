@@ -35,7 +35,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           }
         } catch { /* 取不到用户名不影响登录 */ }
 
-        setAuthConfig({ WXTokenID: res.wxTokenID, CusCode: '', CusName: '', UserName: userName })
+        setAuthConfig({ WXTokenID: res.wxTokenID, LoginID: res.loginID ?? res.wxTokenID, CusCode: '', CusName: '', UserName: userName })
         messageApi.success('登录成功')
         onLoginSuccess()
       } else {

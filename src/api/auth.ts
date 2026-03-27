@@ -35,6 +35,7 @@ export function clearLoginCookies() {
 export async function loginByPhone(phone: string, password: string): Promise<{
   result: boolean
   wxTokenID?: string
+  loginID?: string
   errtext?: string | null
 }> {
   const response = await client.get<LoginResponse>('/WXAuth/LoginByPhone', {
@@ -55,7 +56,7 @@ export async function loginByPhone(phone: string, password: string): Promise<{
     setCookie('WXTokenID', wxTokenId)
     setCookie('IsSalesman', isSalesman)
 
-    return { result: true, wxTokenID: wxTokenId }
+    return { result: true, wxTokenID: wxTokenId, loginID: loginId }
   }
 
   return { result: false, errtext: res.errtext }

@@ -6,6 +6,7 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 // 此处只存需要作为查询参数传递的字段：WXTokenID、CusCode、CusName。
 export interface AuthConfig {
   WXTokenID: string
+  LoginID: string    // 登录 ID（LoginByPhone 返回的第一段）
   CusCode: string
   CusName: string
   UserName: string   // 登录用户姓名，来自 GetBase 接口
@@ -24,6 +25,7 @@ function loadFromSession(): AuthConfig | null {
 
 export const AUTH_CONFIG: AuthConfig = loadFromSession() ?? {
   WXTokenID: '',
+  LoginID: '',
   CusCode: '',
   CusName: '',
   UserName: '',
@@ -36,6 +38,7 @@ export function setAuthConfig(config: AuthConfig) {
 
 export function clearAuthConfig() {
   AUTH_CONFIG.WXTokenID = ''
+  AUTH_CONFIG.LoginID = ''
   AUTH_CONFIG.CusCode = ''
   AUTH_CONFIG.CusName = ''
   sessionStorage.removeItem(SESSION_KEY)
@@ -65,10 +68,22 @@ const client = axios.create({
   },
 })
 
-// 注入时间戳防 GET 缓存（Cookie 由浏览器自动携带，无需手动注入）
+// 注入时间戳防 GET 缓存
+// PROD（Tauri）：Cookie 无法由 webview 自动携带，需手动注入到请求头
 client.interceptors.request.use((config) => {
   if (config.method?.toLowerCase() === 'get') {
     config.params = { ...config.params, _: Date.now() }
+  }
+  if (import.meta.env.PROD && AUTH_CONFIG.WXTokenID) {
+    // tauriFetch 走 Rust 层，不共享 webview 的 Cookie jar
+    // 手动将登录 Cookie 注入请求头，确保服务端 Session 校验通过
+    const cookieStr = [
+      `LoginType=PC`,
+      `WXTokenID=${AUTH_CONFIG.WXTokenID}`,
+      `LoginID=${AUTH_CONFIG.LoginID}`,
+    ].join('; ')
+    config.headers = config.headers ?? {}
+    config.headers['Cookie'] = cookieStr
   }
   return config
 })
