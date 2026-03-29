@@ -2,14 +2,12 @@ import axios from 'axios'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 
 // ===== 运行时认证配置 =====
-// Cookie 由 document.cookie 管理（auth.ts 登录后写入），浏览器自动携带。
-// 此处只存需要作为查询参数传递的字段：WXTokenID、CusCode、CusName。
 export interface AuthConfig {
   WXTokenID: string
-  LoginID: string    // 登录 ID（LoginByPhone 返回的第一段）
+  LoginID: string
   CusCode: string
   CusName: string
-  UserName: string   // 登录用户姓名，来自 GetBase 接口
+  UserName: string
 }
 
 const SESSION_KEY = 'zdp_auth'
@@ -50,40 +48,48 @@ export function isAuthenticated(): boolean {
 
 // ===== axios 实例 =====
 // 开发时（Vite dev server）baseURL 为空，走 proxy；生产时（Tauri 桌面）直接请求后端
-// 生产环境用 tauri-plugin-http 的 fetch 替换全局 fetch，axios 走 Rust 层发请求，绕过 CORS
+// 生产环境通过 axios config.env.fetch 注入 tauriFetch，走 Rust 层发请求，绕过 CORS
+// 注意：不能替换 globalThis.fetch，否则 invoke() 的 IPC 通信会无限递归
 const BASE_URL = import.meta.env.DEV ? '' : 'http://qaweixin.flsoft.cc'
-
-if (import.meta.env.PROD) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(globalThis as any).fetch = tauriFetch
-}
 
 const client = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
   withCredentials: true,
-  adapter: import.meta.env.PROD ? 'fetch' : 'xhr',
+  adapter: 'fetch',
+  // 仅在 PROD 模式注入 tauriFetch，DEV 模式走浏览器原生 fetch（Vite proxy）
+  ...(import.meta.env.PROD ? { env: { fetch: tauriFetch } } : {}),
   headers: {
     'X-Requested-With': 'XMLHttpRequest',
   },
 })
 
 // 注入时间戳防 GET 缓存
-// PROD（Tauri）：Cookie 无法由 webview 自动携带，需手动注入到请求头
 client.interceptors.request.use((config) => {
   if (config.method?.toLowerCase() === 'get') {
     config.params = { ...config.params, _: Date.now() }
   }
   if (import.meta.env.PROD && AUTH_CONFIG.WXTokenID) {
-    // tauriFetch 走 Rust 层，不共享 webview 的 Cookie jar
-    // 手动将登录 Cookie 注入请求头，确保服务端 Session 校验通过
+    // *** 关键：Cookie 不能放 config.headers ***
+    // axios 将 config.headers 放入 new Request(url, {headers}) 构造器，
+    // 浏览器的 Request 构造器会自动过滤 forbidden headers（包括 Cookie）。
+    // fetchOptions 才是作为第二参数直接传给 tauriFetch(request, fetchOptions)，
+    // tauriFetch 用 new Headers(fetchOptions.headers) 构造（guard="none"，不过滤），
+    // Cookie 才能真正传到 Rust 层再发给服务器。
     const cookieStr = [
       `LoginType=PC`,
       `WXTokenID=${AUTH_CONFIG.WXTokenID}`,
       `LoginID=${AUTH_CONFIG.LoginID}`,
     ].join('; ')
-    config.headers = config.headers ?? {}
-    config.headers['Cookie'] = cookieStr
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fc = config as any
+    fc.fetchOptions = {
+      ...(fc.fetchOptions ?? {}),
+      headers: {
+        ...(fc.fetchOptions?.headers ?? {}),
+        Cookie: cookieStr,
+      },
+    }
   }
   return config
 })
