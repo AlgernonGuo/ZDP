@@ -17,7 +17,7 @@ import {
 } from 'antd'
 import { DeleteOutlined, SendOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { buildOrderPayload, createDeliveryApply } from '../api/order'
-import type { StagingItem } from '../types'
+import type { StagingItem, InventoryClass } from '../types'
 
 const { Text } = Typography
 const { TextArea } = Input
@@ -30,6 +30,7 @@ interface StagingPanelProps {
   orderId?: number
   initialMemo?: string
   onSubmitSuccess?: () => void
+  classList?: InventoryClass[]
 }
 
 const StagingPanel: React.FC<StagingPanelProps> = ({
@@ -50,37 +51,31 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
   const [snatchInterval, setSnatchInterval] = useState(300)
   const snatchStopRef = useRef(false)
   const snatchIntervalRef = useRef(300)
+
   // 记录最新加入的 key，用于触发入场动画
   const [newKey, setNewKey] = useState<string | null>(null)
   const prevKeysRef = useRef<Set<string>>(new Set())
-  // 从空到有时，给列表容器加一次整体淡入
   const [listAnimKey, setListAnimKey] = useState(0)
   const wasEmptyRef = useRef(true)
   const isInitialMountRef = useRef(true)
 
   useEffect(() => {
     const currentKeys = new Set(items.map((i) => i.key))
-
-    // 首次挂载时直接记录初始 keys，不触发任何动画
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false
       prevKeysRef.current = currentKeys
       if (currentKeys.size > 0) wasEmptyRef.current = false
       return
     }
-
-    // 空 → 有：列表整体入场
     if (wasEmptyRef.current && currentKeys.size > 0) {
       wasEmptyRef.current = false
       setListAnimKey((k) => k + 1)
     } else if (currentKeys.size === 0) {
       wasEmptyRef.current = true
     }
-
     for (const key of currentKeys) {
       if (!prevKeysRef.current.has(key)) {
         setNewKey(key)
-        // 动画时长约 1100ms，结束后清除
         const t = setTimeout(() => setNewKey(null), 1200)
         prevKeysRef.current = currentKeys
         return () => clearTimeout(t)
@@ -93,27 +88,16 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
   const totalAmount = items.reduce((sum, item) => sum + item.userNum * item.NumWeight * item.UPrice1, 0)
 
   const handleSubmit = async () => {
-    if (items.length === 0) {
-      messageApi.warning('暂存区为空，请先加入货品')
-      return
-    }
-
+    if (items.length === 0) { messageApi.warning('暂存区为空，请先加入货品'); return }
     for (const item of items) {
       if (!item.userNum || item.userNum <= 0) {
-        messageApi.error(`${item.OnLineInvName} 的件数必须大于 0`)
-        return
+        messageApi.error(`${item.OnLineInvName} 的件数必须大于 0`); return
       }
       if (item.userNum > item.Num) {
-        messageApi.error(`${item.OnLineInvName} 的件数不能超过库存 ${item.Num} 件`)
-        return
+        messageApi.error(`${item.OnLineInvName} 的件数不能超过库存 ${item.Num} 件`); return
       }
     }
-
-    if (snatchMode) {
-      await handleSnatch()
-    } else {
-      await handleNormalSubmit()
-    }
+    if (snatchMode) { await handleSnatch() } else { await handleNormalSubmit() }
   }
 
   const handleNormalSubmit = async () => {
@@ -121,113 +105,66 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
     try {
       const payload = buildOrderPayload(items, orderMemo, orderId)
       const res = await createDeliveryApply(payload)
-
       if (res.result) {
         messageApi.success(orderId ? '订单修改成功！' : '提货申请提交成功！')
-        onClear()
-        setOrderMemo('')
-        onSubmitSuccess?.()
+        onClear(); setOrderMemo(''); onSubmitSuccess?.()
       } else {
         messageApi.error(`${orderId ? '修改' : '提交'}失败：${res.errtext ?? '未知错误'}`)
       }
     } catch (e) {
-      console.error('提交失败', e)
-      messageApi.error('网络错误，提交失败')
+      console.error('提交失败', e); messageApi.error('网络错误，提交失败')
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleSnatch = async () => {
-    snatchStopRef.current = false
-    setSnatching(true)
-    setSnatchCount(0)
-
+    snatchStopRef.current = false; setSnatching(true); setSnatchCount(0)
     const payload = buildOrderPayload(items, orderMemo, orderId)
     let count = 0
-
     const tryOnce = async (): Promise<void> => {
       if (snatchStopRef.current) return
-
-      count++
-      setSnatchCount(count)
-
+      count++; setSnatchCount(count)
       try {
         const res = await createDeliveryApply(payload)
-
         if (res.result) {
           messageApi.success(`抢单成功！（第 ${count} 次尝试）`)
-          setSnatching(false)
-          onClear()
-          setOrderMemo('')
-          onSubmitSuccess?.()
-          return
+          setSnatching(false); onClear(); setOrderMemo(''); onSubmitSuccess?.(); return
         }
-
-        // errtype==="1" 表示未到下单时间，继续重试
         if (res.errtype === '1') {
-          if (!snatchStopRef.current) {
-            setTimeout(() => void tryOnce(), snatchIntervalRef.current)
-          }
+          if (!snatchStopRef.current) setTimeout(() => void tryOnce(), snatchIntervalRef.current)
           return
         }
-
-        // 其他错误（无货等）停止
         messageApi.error(`抢单终止：${res.errtext ?? '未知错误'}（已尝试 ${count} 次）`)
         setSnatching(false)
       } catch (e) {
         console.error('抢单请求失败', e)
-        if (!snatchStopRef.current) {
-          setTimeout(() => void tryOnce(), 1000)
-        }
+        if (!snatchStopRef.current) setTimeout(() => void tryOnce(), 1000)
       }
     }
-
     await tryOnce()
   }
 
   const handleStopSnatch = () => {
-    snatchStopRef.current = true
-    setSnatching(false)
+    snatchStopRef.current = true; setSnatching(false)
     messageApi.info(`已停止抢单（共尝试 ${snatchCount} 次）`)
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-      }}
-    >
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {contextHolder}
 
-      {/* 状态条：仅有内容时显示 */}
+      {/* 顶部操作条 */}
       {items.length > 0 && (
-        <div
-          style={{
-            padding: '10px 14px 8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexShrink: 0,
-          }}
-        >
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            暂存区 · {items.length} 种货品
-          </Text>
-          <Popconfirm
-            title="清空所有暂存货品？"
-            onConfirm={onClear}
-            okText="清空"
-            cancelText="取消"
-          >
+        <div style={{ padding: '10px 14px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>{items.length} 种货品</Text>
+          <Popconfirm title="清空所有暂存货品？" onConfirm={onClear} okText="清空" cancelText="取消">
             <Button type="text" danger size="small">清空</Button>
           </Popconfirm>
         </div>
       )}
 
-      {/* 货品卡片列表 */}
+      {/* 货品列表 */}
       <div
         key={listAnimKey}
         className={items.length > 0 ? 'staging-list' : undefined}
@@ -245,44 +182,25 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
               key={item.key}
               className={item.key === newKey ? 'staging-item-new' : undefined}
               style={{
-                borderRadius: 10,
-                padding: '10px 12px',
-                marginBottom: 8,
+                borderRadius: 10, padding: '10px 12px', marginBottom: 8,
                 background: 'rgb(250,250,250)',
                 border: '1px solid rgba(0,0,0,0.09)',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
               }}
             >
-              {/* 第一行：货名 + 删除 */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: '#262626',
-                      wordBreak: 'break-all',
-                      lineHeight: '1.5',
-                    }}
-                  >
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#262626', wordBreak: 'break-all', lineHeight: '1.5' }}>
                     {item.OnLineInvName}
                   </div>
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    {item.WhName}
-                    {item.Wallthickness ? ` · 壁厚 ${item.Wallthickness}` : ''}
+                    {item.WhName}{item.Wallthickness ? ` · 壁厚 ${item.Wallthickness}` : ''}
                   </Text>
                 </div>
-                <Popconfirm
-                  title="移除该货品？"
-                  onConfirm={() => onRemoveItem(item.key)}
-                  okText="移除"
-                  cancelText="取消"
-                >
+                <Popconfirm title="移除该货品？" onConfirm={() => onRemoveItem(item.key)} okText="移除" cancelText="取消">
                   <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ flexShrink: 0 }} />
                 </Popconfirm>
               </div>
-
-              {/* 第二行：单价 / 库存 */}
               <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
                 <Text style={{ fontSize: 12 }}>
                   <Text type="secondary" style={{ fontSize: 11 }}>单价 </Text>
@@ -300,24 +218,17 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
                   <Text type="secondary" style={{ fontSize: 11 }}> 吨</Text>
                 </Text>
               </div>
-
-              {/* 第三行：件数 + 行备注 */}
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                   <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>件数</Text>
                   <InputNumber
-                    size="small"
-                    min={1}
-                    max={item.Num}
-                    value={item.userNum}
+                    size="small" min={1} max={item.Num} value={item.userNum}
                     onChange={(val) => { if (val != null) onUpdateItem(item.key, { userNum: val }) }}
                     style={{ width: 72 }}
                   />
                 </div>
                 <Input
-                  size="small"
-                  value={item.remark}
-                  placeholder="行备注（可选）"
+                  size="small" value={item.remark} placeholder="行备注（可选）"
                   onChange={(e) => onUpdateItem(item.key, { remark: e.target.value })}
                   style={{ flex: 1 }}
                 />
@@ -327,121 +238,87 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
         )}
       </div>
 
-      {/* 汇总 + 提交区 */}
-      {items.length > 0 && (
-        <div
-          className="staging-footer"
-          style={{
-            padding: '12px 16px',
-            borderTop: '1px solid rgba(0,0,0,0.06)',
-            flexShrink: 0,
-          }}
-        >
-          <Row gutter={16} style={{ marginBottom: 8 }}>
-            <Col span={12}>
-              <Statistic
-                title="预估重量(吨)"
-                value={totalWeight.toFixed(3)}
-                valueStyle={{ fontSize: 16 }}
-              />
-            </Col>
-            <Col span={12}>
-              <Statistic
-                title="预估金额(元)"
-                value={totalAmount.toFixed(2)}
-                valueStyle={{ fontSize: 18, color: '#e11d48' }}
-              />
-            </Col>
-          </Row>
-
-          <Divider style={{ margin: '12px 0' }} />
-
-          <div style={{ marginBottom: 8 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>整单备注</Text>
-            <TextArea
-              rows={2}
-              value={orderMemo}
-              onChange={(e) => setOrderMemo(e.target.value)}
-              placeholder="整单备注（可选）"
-              style={{ marginTop: 4 }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Space size={6}>
-              <ThunderboltOutlined style={{ color: snatchMode ? '#faad14' : '#bfbfbf' }} />
-              <Text style={{ fontSize: 13 }}>抢单模式</Text>
-              <Switch
-                size="small"
-                checked={snatchMode}
-                onChange={setSnatchMode}
-                disabled={snatching}
-              />
-              {snatchMode && (
-                <>
-                  <Text type="secondary" style={{ fontSize: 12 }}>间隔</Text>
-                  <InputNumber
-                    size="small"
-                    min={100}
-                    max={10000}
-                    step={100}
-                    value={snatchInterval}
-                    disabled={snatching}
-                    onChange={(val) => {
-                      const v = val ?? 300
-                      setSnatchInterval(v)
-                      snatchIntervalRef.current = v
-                    }}
-                    style={{ width: 110 }}
-                    addonAfter="ms"
-                  />
-                </>
-              )}
-            </Space>
-            {snatching && (
-              <Badge
-                count={snatchCount}
-                overflowCount={9999}
-                style={{ backgroundColor: '#faad14' }}
-                title={`已尝试 ${snatchCount} 次`}
-              />
-            )}
-          </div>
-
-          {snatchMode && !snatching && (
-            <div style={{ marginBottom: 8, padding: '6px 10px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 10 }}>
-              <Text style={{ fontSize: 12, color: '#ad6800' }}>
-                开启后将持续尝试下单，直到成功或遇到非时间限制的错误（如无货）
-              </Text>
+      {/* 底部操作区 */}
+      <div
+        className="staging-footer"
+        style={{
+          padding: '12px 16px',
+          borderTop: '1px solid rgba(0,0,0,0.06)',
+          flexShrink: 0,
+        }}
+      >
+        {items.length > 0 && (
+          <>
+            <Row gutter={16} style={{ marginBottom: 8 }}>
+              <Col span={12}>
+                <Statistic title="预估重量(吨)" value={totalWeight.toFixed(3)} valueStyle={{ fontSize: 16 }} />
+              </Col>
+              <Col span={12}>
+                <Statistic title="预估金额(元)" value={totalAmount.toFixed(2)} valueStyle={{ fontSize: 18, color: '#e11d48' }} />
+              </Col>
+            </Row>
+            <Divider style={{ margin: '12px 0' }} />
+            <div style={{ marginBottom: 8 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>整单备注</Text>
+              <TextArea rows={2} value={orderMemo} onChange={(e) => setOrderMemo(e.target.value)} placeholder="整单备注（可选）" style={{ marginTop: 4 }} />
             </div>
-          )}
+          </>
+        )}
 
-          {snatching ? (
-            <Button
-              block
-              size="large"
-              danger
-              onClick={handleStopSnatch}
-            >
-              停止抢单（已尝试 {snatchCount} 次）
-            </Button>
-          ) : (
-            <Button
-              type="primary"
-              block
-              size="large"
-              icon={snatchMode ? <ThunderboltOutlined /> : <SendOutlined />}
-              loading={submitting}
-              onClick={handleSubmit}
-              style={snatchMode ? { background: '#faad14', borderColor: '#faad14' } : undefined}
-            >
-              {snatchMode
-                ? `开始抢单（${items.length} 种货品）`
-                : orderId ? `保存修改（${items.length} 种货品）` : `提交提货申请（${items.length} 种货品）`}
-            </Button>
+        {/* 抢单模式（普通模式子选项） */}
+        {snatchMode && !snatching && (
+          <div style={{ marginBottom: 6, padding: '5px 10px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8 }}>
+            <Text style={{ fontSize: 12, color: '#ad6800' }}>
+              开启后将持续尝试下单，直到成功或遇到非时间限制的错误（如无货）
+            </Text>
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Space size={6}>
+            <ThunderboltOutlined style={{ color: snatchMode ? '#faad14' : '#bfbfbf' }} />
+            <Text style={{ fontSize: 13 }}>抢单模式</Text>
+            <Switch
+              size="small"
+              checked={snatchMode}
+              onChange={setSnatchMode}
+              disabled={snatching}
+            />
+            {snatchMode && (
+              <>
+                <Text type="secondary" style={{ fontSize: 12 }}>间隔</Text>
+                <InputNumber
+                  size="small" min={100} max={10000} step={100}
+                  value={snatchInterval} disabled={snatching}
+                  onChange={(val) => { const v = val ?? 300; setSnatchInterval(v); snatchIntervalRef.current = v }}
+                  style={{ width: 110 }} addonAfter="ms"
+                />
+              </>
+            )}
+          </Space>
+          {snatching && (
+            <Badge count={snatchCount} overflowCount={9999} style={{ backgroundColor: '#faad14' }} />
           )}
         </div>
-      )}
+
+        {snatching ? (
+          <Button block size="large" danger onClick={handleStopSnatch}>
+            停止抢单（已尝试 {snatchCount} 次）
+          </Button>
+        ) : (
+          <Button
+            type="primary" block size="large"
+            icon={snatchMode ? <ThunderboltOutlined /> : <SendOutlined />}
+            loading={submitting}
+            disabled={items.length === 0}
+            onClick={handleSubmit}
+            style={snatchMode && items.length > 0 ? { background: '#faad14', borderColor: '#faad14' } : undefined}
+          >
+            {snatchMode
+              ? `开始抢单${items.length > 0 ? `（${items.length} 种货品）` : ''}`
+              : orderId ? `保存修改${items.length > 0 ? `（${items.length} 种货品）` : ''}` : `提交提货申请${items.length > 0 ? `（${items.length} 种货品）` : ''}`}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

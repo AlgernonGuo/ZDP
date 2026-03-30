@@ -258,3 +258,40 @@ export interface OrderListResponse {
   errtype: string | null
   time: string
 }
+
+// ===== 自动搜索抢单模式 =====
+export interface AutoSnatchTarget {
+  id: string
+  invCName: string        // 品种名（InvCName，用于接口参数）
+  standard: string        // 规格（不含壁厚）
+  wallThickness: number | null
+  userNum: number
+  remark: string
+}
+
+export interface AutoSnatchLog {
+  time: string
+  level: 'info' | 'success' | 'error' | 'warn'
+  message: string
+}
+
+export type AutoSnatchStatus = 'idle' | 'searching' | 'placing' | 'success' | 'failed' | 'stopped'
+
+export type AutoSnatchTaskStatus = 'running' | 'stopped' | 'completed'
+
+export interface AutoSnatchTask {
+  id: string                           // Date.now().toString(36) + 随机后缀
+  taskNo: number                       // 序号，用于显示"任务 #N"
+  startTime: string                    // ISO 字符串
+  endTime?: string                     // 任务结束时写入
+  targetsSnapshot: AutoSnatchTarget[]  // 发起时的深拷贝快照
+  memo: string
+  interval: number
+  cusCode: string
+  cusName: string
+  status: AutoSnatchTaskStatus
+  statuses: Record<string, AutoSnatchStatus>
+  hitItems: Record<string, StagingItem | null>
+  logs: AutoSnatchLog[]
+  searchCount: number
+}

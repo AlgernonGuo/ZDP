@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Layout, Typography, Button, Tooltip, Menu, ConfigProvider, Popover, Grid, Segmented } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import 'dayjs/locale/zh-cn'
@@ -8,8 +8,10 @@ import SearchPanel from './components/SearchPanel'
 import StagingPanel from './components/StagingPanel'
 import OrderListPage from './components/OrderListPage'
 import LoginPage from './components/LoginPage'
+import AutoSnatchPanel from './components/AutoSnatchPanel'
 import { isAuthenticated, clearAuthConfig, AUTH_CONFIG } from './api/client'
-import type { StagingItem } from './types'
+import { getInventoryClassList } from './api/inventory'
+import type { StagingItem, InventoryClass } from './types'
 import './App.css'
 
 dayjs.locale('zh-cn')
@@ -63,10 +65,13 @@ function App() {
   const [cusName, setCusName] = useState(AUTH_CONFIG.CusName)
   const [cusCode, setCusCode] = useState(AUTH_CONFIG.CusCode)
   const [stagingItems, setStagingItems] = useState<StagingItem[]>([])
+  const [classList, setClassList] = useState<InventoryClass[]>([])
   const [activePage, setActivePage] = useState<PageKey>(getInitialPage)
   const [orderListRefreshKey, setOrderListRefreshKey] = useState(0)
   const [fontPresetKey, setFontPresetKey] = useState<FontPresetKey>(getInitialPreset)
   const [mobileCreatePane, setMobileCreatePane] = useState<MobileCreatePane>('search')
+  const [autoSnatchMode, setAutoSnatchMode] = useState(false)
+  const [autoSnatching, setAutoSnatching] = useState(false)
 
   const preset = FONT_PRESETS.find((p) => p.key === fontPresetKey) ?? FONT_PRESETS[1]
   const isNarrowLayout = !screens.lg
@@ -95,6 +100,14 @@ function App() {
     setCusCode('')
     setAuthed(false)
   }, [])
+
+  useEffect(() => {
+    if (authed) {
+      getInventoryClassList().then((res) => {
+        if (res.result) setClassList(res.data)
+      }).catch(() => {})
+    }
+  }, [authed])
 
   const handleAddToStaging = useCallback((item: StagingItem) => {
     setStagingItems((prev) => {
@@ -317,10 +330,43 @@ function App() {
             flex: 1,
             overflow: 'hidden',
             minHeight: 0,
-            flexDirection: isNarrowLayout ? 'column' : 'row',
+            flexDirection: 'column',
           }}
         >
-          {isNarrowLayout && (
+          {/* 页面级模式切换栏 */}
+          <div
+            style={{
+              padding: '8px 16px',
+              borderBottom: '1px solid rgba(0,0,0,0.06)',
+              flexShrink: 0,
+              background: '#fff',
+            }}
+          >
+            <Segmented
+              value={autoSnatchMode ? 'auto' : 'normal'}
+              disabled={autoSnatching}
+              onChange={(v) => {
+                const isAuto = v === 'auto'
+                setAutoSnatchMode(isAuto)
+              }}
+              options={[
+                { label: '普通下单', value: 'normal' },
+                { label: '自动搜索抢单', value: 'auto' },
+              ]}
+            />
+          </div>
+
+          {/* 两列内容区 */}
+          <div
+            style={{
+              flex: 1,
+              overflow: 'hidden',
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: isNarrowLayout ? 'column' : 'row',
+            }}
+          >
+          {isNarrowLayout && !autoSnatchMode && (
             <div
               style={{
                 padding: '8px 10px',
@@ -340,6 +386,18 @@ function App() {
               />
             </div>
           )}
+          {/* 自动搜索抢单模式：占满全宽 */}
+          {autoSnatchMode && (
+            <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+              <AutoSnatchPanel
+                classList={classList}
+                onSnatchingChange={(v) => setAutoSnatching(v)}
+              />
+            </div>
+          )}
+          {/* 普通模式：左查询 + 右暂存 */}
+          {!autoSnatchMode && (
+            <>
           <div
             style={{
               flex: 1,
@@ -349,11 +407,11 @@ function App() {
               minHeight: 0,
             }}
           >
-            <SearchPanel
-              onAddToStaging={handleAddToStaging}
-              stagingKeys={stagingKeys}
-              onCusChange={handleCusChange}
-            />
+              <SearchPanel
+                onAddToStaging={handleAddToStaging}
+                stagingKeys={stagingKeys}
+                onCusChange={handleCusChange}
+              />
           </div>
           <div
             style={{
@@ -374,8 +432,12 @@ function App() {
               onUpdateItem={handleUpdateItem}
               onRemoveItem={handleRemoveItem}
               onClear={handleClear}
+              classList={classList}
             />
           </div>
+            </>
+          )}
+          </div>{/* 两列内容区 end */}
         </div>
 
         {/* 订单列表页 */}
