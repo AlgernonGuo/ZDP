@@ -451,12 +451,16 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
   const [formRemark, setFormRemark] = useState<string>('')
   const [wtOptions, setWtOptions]   = useState<string[]>([])
   const [wtInputVal, setWtInputVal] = useState('')
+  // 用 ref 同步记录输入值，避免 onChange/onDropdownVisibleChange 竞争
+  const wtInputRef = useRef('')
 
   const standards = classList.find((c) => c.InvCName === formClass)
     ?.OnLienInventoryClassItem.map((i) => i.Standard) ?? []
 
   useEffect(() => {
-    if (!formClass || !formStd) { setWtOptions([]); setFormWt(null); setWtInputVal(''); return }
+    if (!formClass || !formStd) {
+      setWtOptions([]); setFormWt(null); setWtInputVal(''); wtInputRef.current = ''; return
+    }
     getOnLineStockList(formClass, formStd).then((res) => {
       const wts = [...new Set((res.data ?? []).map((i) => String(i.Wallthickness)).filter(Boolean))]
         .sort((a, b) => Number(a) - Number(b))
@@ -465,10 +469,10 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
   }, [formClass, formStd])
 
   const wtSelectOptions = [
-    ...wtOptions.map((w) => ({ label: w, value: w })),
     ...(wtInputVal && !isNaN(Number(wtInputVal)) && !wtOptions.includes(wtInputVal)
-      ? [{ label: `使用 "${wtInputVal}"`, value: wtInputVal }]
+      ? [{ label: wtInputVal, value: wtInputVal }]
       : []),
+    ...wtOptions.map((w) => ({ label: w, value: w })),
   ]
 
   // ── 左侧：待发起规格 ──────────────────────────────────────────────────────
@@ -967,8 +971,19 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
                 showSearch allowClear
                 placeholder="可选"
                 value={formWt ?? undefined}
-                onChange={(v) => { setFormWt(v != null ? String(v) : null); setWtInputVal('') }}
-                onSearch={setWtInputVal}
+                onChange={(v) => {
+                  setFormWt(v != null ? String(v) : null)
+                  wtInputRef.current = ''
+                  setWtInputVal('')
+                }}
+                onSearch={(v) => { wtInputRef.current = v; setWtInputVal(v) }}
+                onDropdownVisibleChange={(open) => {
+                  if (!open && wtInputRef.current && !isNaN(Number(wtInputRef.current))) {
+                    setFormWt(wtInputRef.current)
+                    wtInputRef.current = ''
+                    setWtInputVal('')
+                  }
+                }}
                 filterOption={false}
                 options={wtSelectOptions}
                 disabled={!formStd}
