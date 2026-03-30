@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
-import { Card, Form, Input, Button, message, Typography } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Card, Form, Input, Button, message, Typography, Checkbox } from 'antd'
 import { LockOutlined, PhoneOutlined } from '@ant-design/icons'
 import { loginByPhone, getBase } from '../api/auth'
-import { setAuthConfig } from '../api/client'
+import { setAuthConfig, saveCredentials, loadCredentials, clearCredentials } from '../api/client'
 
 const { Title, Text } = Typography
 
@@ -13,6 +13,7 @@ interface LoginPageProps {
 interface LoginFormValues {
   phone: string
   password: string
+  remember: boolean
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
@@ -20,12 +21,29 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false)
   const [form] = Form.useForm<LoginFormValues>()
 
+  // 初始化时读取已保存的账号密码
+  useEffect(() => {
+    const cred = loadCredentials()
+    if (cred) {
+      form.setFieldsValue({ phone: cred.phone, password: cred.password, remember: true })
+    } else {
+      form.setFieldValue('remember', false)
+    }
+  }, [form])
+
   const handleSubmit = async (values: LoginFormValues) => {
     setLoading(true)
     try {
       const res = await loginByPhone(values.phone, values.password)
 
       if (res.result && res.wxTokenID) {
+        // 根据"记住密码"决定是否保存
+        if (values.remember) {
+          saveCredentials(values.phone, values.password)
+        } else {
+          clearCredentials()
+        }
+
         // 获取用户基础信息（UserName）
         let userName = ''
         try {
@@ -103,7 +121,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             />
           </Form.Item>
 
-          <Form.Item style={{ marginBottom: 0, marginTop: 4 }}>
+          <Form.Item name="remember" valuePropName="checked" style={{ marginBottom: 16 }}>
+            <Checkbox>记住密码</Checkbox>
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0 }}>
             <Button
               type="primary"
               htmlType="submit"

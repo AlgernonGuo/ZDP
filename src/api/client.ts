@@ -10,18 +10,19 @@ export interface AuthConfig {
   UserName: string
 }
 
-const SESSION_KEY = 'zdp_auth'
+const AUTH_KEY = 'zdp_auth'
+const CRED_KEY = 'zdp_cred'
 
-function loadFromSession(): AuthConfig | null {
+function loadFromStorage(): AuthConfig | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY)
+    const raw = localStorage.getItem(AUTH_KEY)
     return raw ? (JSON.parse(raw) as AuthConfig) : null
   } catch {
     return null
   }
 }
 
-export const AUTH_CONFIG: AuthConfig = loadFromSession() ?? {
+export const AUTH_CONFIG: AuthConfig = loadFromStorage() ?? {
   WXTokenID: '',
   LoginID: '',
   CusCode: '',
@@ -31,7 +32,7 @@ export const AUTH_CONFIG: AuthConfig = loadFromSession() ?? {
 
 export function setAuthConfig(config: AuthConfig) {
   Object.assign(AUTH_CONFIG, config)
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(config))
+  localStorage.setItem(AUTH_KEY, JSON.stringify(config))
 }
 
 export function clearAuthConfig() {
@@ -39,7 +40,28 @@ export function clearAuthConfig() {
   AUTH_CONFIG.LoginID = ''
   AUTH_CONFIG.CusCode = ''
   AUTH_CONFIG.CusName = ''
-  sessionStorage.removeItem(SESSION_KEY)
+  AUTH_CONFIG.UserName = ''
+  localStorage.removeItem(AUTH_KEY)
+}
+
+// ===== 记住密码 =====
+export interface SavedCred { phone: string; password: string }
+
+export function saveCredentials(phone: string, password: string) {
+  localStorage.setItem(CRED_KEY, JSON.stringify({ phone, password }))
+}
+
+export function loadCredentials(): SavedCred | null {
+  try {
+    const raw = localStorage.getItem(CRED_KEY)
+    return raw ? (JSON.parse(raw) as SavedCred) : null
+  } catch {
+    return null
+  }
+}
+
+export function clearCredentials() {
+  localStorage.removeItem(CRED_KEY)
 }
 
 export function isAuthenticated(): boolean {
