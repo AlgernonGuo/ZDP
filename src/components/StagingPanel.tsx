@@ -15,7 +15,7 @@ import {
   Space,
   Badge,
 } from 'antd'
-import { DeleteOutlined, SendOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { DeleteOutlined, SendOutlined, ThunderboltOutlined, ExclamationCircleFilled } from '@ant-design/icons'
 import { buildOrderPayload, createDeliveryApply } from '../api/order'
 import type { StagingItem, InventoryClass } from '../types'
 
@@ -49,6 +49,8 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
   const [snatchMode, setSnatchMode] = useState(false)
   const [snatchCount, setSnatchCount] = useState(0)
   const [snatchInterval, setSnatchInterval] = useState(300)
+  const [deleteHover, setDeleteHover] = useState<Record<string, boolean>>({})
+  const [clearHover, setClearHover] = useState(false)
   const snatchStopRef = useRef(false)
   const snatchIntervalRef = useRef(300)
 
@@ -158,8 +160,28 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
       {items.length > 0 && (
         <div style={{ padding: '10px 14px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>{items.length} 种货品</Text>
-          <Popconfirm title="清空所有暂存货品？" onConfirm={onClear} okText="清空" cancelText="取消">
-            <Button type="text" danger size="small">清空</Button>
+          <Popconfirm
+            title="清空所有暂存货品？"
+            description="列表中所有货品将被移除。"
+            icon={<ExclamationCircleFilled style={{ color: '#faad14' }} />}
+            okText="清空"
+            okButtonProps={{ danger: true }}
+            cancelText="取消"
+            onConfirm={onClear}
+          >
+            <Button
+              type="text"
+              size="small"
+              style={{
+                color: clearHover ? '#ef4444' : '#9ca3af',
+                transition: 'color 0.15s',
+                fontSize: 12,
+                padding: '0 4px',
+                height: 'auto',
+              }}
+              onMouseEnter={() => setClearHover(true)}
+              onMouseLeave={() => setClearHover(false)}
+            >清空</Button>
           </Popconfirm>
         </div>
       )}
@@ -197,8 +219,27 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
                     {item.WhName}{item.Wallthickness ? ` · 壁厚 ${item.Wallthickness}` : ''}
                   </Text>
                 </div>
-                <Popconfirm title="移除该货品？" onConfirm={() => onRemoveItem(item.key)} okText="移除" cancelText="取消">
-                  <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ flexShrink: 0 }} />
+                <Popconfirm
+                  title="移除该货品？"
+                  icon={<ExclamationCircleFilled style={{ color: '#faad14' }} />}
+                  okText="移除"
+                  okButtonProps={{ danger: true }}
+                  cancelText="取消"
+                  onConfirm={() => onRemoveItem(item.key)}
+                >
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    style={{
+                      flexShrink: 0,
+                      color: deleteHover[item.key] ? '#ef4444' : '#d1d5db',
+                      transition: 'color 0.15s',
+                      padding: '0 4px',
+                    }}
+                    onMouseEnter={() => setDeleteHover((prev) => ({ ...prev, [item.key]: true }))}
+                    onMouseLeave={() => setDeleteHover((prev) => ({ ...prev, [item.key]: false }))}
+                  />
                 </Popconfirm>
               </div>
               <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
