@@ -18,6 +18,7 @@ import {
   DownOutlined,
   RightOutlined,
   ReloadOutlined,
+  ExclamationCircleFilled,
 } from '@ant-design/icons'
 import { getCustomerList, getOnLineStockList, getOnLineStockDetail } from '../api/inventory'
 import { setAuthConfig, AUTH_CONFIG } from '../api/client'
@@ -187,6 +188,7 @@ function TaskCard({ task, isRunning, onStop, onResume, onReuseTargets, onDelete 
               </Button>
               <Popconfirm
                 title="确认删除此任务？"
+                icon={<ExclamationCircleFilled style={{ color: '#faad14' }} />}
                 okText="删除"
                 okButtonProps={{ danger: true }}
                 cancelText="取消"
@@ -382,6 +384,8 @@ function RightPanelHeader({ tasks, onDeleteAllStopped }: RightPanelHeaderProps) 
       {stoppedCount > 0 && (
         <Popconfirm
           title="确认清空已停止任务？"
+          description={`将删除全部 ${stoppedCount} 个已停止任务。`}
+          icon={<ExclamationCircleFilled style={{ color: '#faad14' }} />}
           okText="清空"
           okButtonProps={{ danger: true }}
           cancelText="取消"
@@ -596,6 +600,8 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
     taskId: string,
     memo: string,
     stopRefsMap: React.MutableRefObject<Map<string, boolean>>,
+    cusCode: string,
+    cusName: string,
   ): Promise<void> => {
     const { id, invCName, standard, wallThickness, userNum, remark } = target
     let cachedHit: StagingItem | null = null
@@ -662,6 +668,10 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
           }
 
           const detail = dataArr[0]
+          const actualNum = Math.min(userNum, detail.Num)
+          if (detail.Num < userNum) {
+            addTaskLog('warn', `[${invCName} ${standard}] 库存仅 ${detail.Num} 件，低于目标 ${userNum} 件，以库存数量下单`)
+          }
           cachedHit = {
             key: String(hit.AutoID),
             InvCode: detail.InvCode, InvName: detail.InvName,
@@ -675,7 +685,7 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
             UPrice1: detail.UPrice1, Num: detail.Num, STNum: detail.STNum,
             NumWeight: detail.NumWeight,
             OnLinePackCount: detail.OnLinePackCount ?? '1',
-            userNum, remark,
+            userNum: actualNum, remark,
           }
           updateTask(taskId, (t) => ({
             ...t,
@@ -697,6 +707,8 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
 
       try {
         const payload = buildOrderPayload([cachedHit], memo)
+        payload.CusCode = cusCode
+        payload.CusName = cusName
         const res = await createDeliveryApply(payload)
 
         if (res.result) {
@@ -773,7 +785,7 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
     snatchIntervalRef.current = autoSnatchInterval
     onSnatchingChange?.(true)
 
-    Promise.allSettled(snapshot.map((t) => runTarget(t, taskId, orderMemo, stopRefs))).then(() => {
+    Promise.allSettled(snapshot.map((t) => runTarget(t, taskId, orderMemo, stopRefs, newTask.cusCode, newTask.cusName))).then(() => {
       if (!stopRefs.current.get(taskId)) {
         setTasks((prev) => {
           const updated = prev.map((t) =>
@@ -847,7 +859,7 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
     snatchIntervalRef.current = stoppedTask.interval
     onSnatchingChange?.(true)
 
-    Promise.allSettled(targetsToResume.map((t) => runTarget(t, taskId, stoppedTask.memo, stopRefs))).then(() => {
+    Promise.allSettled(targetsToResume.map((t) => runTarget(t, taskId, stoppedTask.memo, stopRefs, stoppedTask.cusCode, stoppedTask.cusName))).then(() => {
       if (!stopRefs.current.get(taskId)) {
         setTasks((prev) => {
           const updated = prev.map((t) =>
