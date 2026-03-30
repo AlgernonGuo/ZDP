@@ -46,11 +46,11 @@ export async function loginByPhone(phone: string, password: string): Promise<{
 
   if (res.result && res.data) {
     const parts = res.data.split(';')
-    const loginId   = parts[0] ?? ''
-    const wxTokenId = parts[1] ?? phone   // 通常等于手机号
+    const loginId    = parts[0] ?? ''
+    const wxTokenId  = parts[1] ?? phone
     const isSalesman = parts[2] ?? 'False'
 
-    // 写入浏览器 Cookie，后续代理请求自动携带
+    // 写入浏览器 Cookie，后续代理请求自动携带（DEV 模式）
     setCookie('LoginType', 'PC')
     setCookie('LoginID', loginId)
     setCookie('WXTokenID', wxTokenId)
