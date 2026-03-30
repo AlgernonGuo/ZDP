@@ -267,14 +267,14 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
 
         {/* 抢单模式（普通模式子选项） */}
         {snatchMode && !snatching && (
-          <div style={{ marginBottom: 6, padding: '5px 10px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8 }}>
+          <div style={{ marginBottom: 8, padding: '5px 10px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8 }}>
             <Text style={{ fontSize: 12, color: '#ad6800' }}>
               开启后将持续尝试下单，直到成功或遇到非时间限制的错误（如无货）
             </Text>
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <Space size={6}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, minHeight: 28 }}>
+          <Space size={6} style={{ lineHeight: 1 }}>
             <ThunderboltOutlined style={{ color: snatchMode ? '#faad14' : '#bfbfbf' }} />
             <Text style={{ fontSize: 13 }}>抢单模式</Text>
             <Switch
@@ -290,8 +290,10 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
                   size="small" min={100} max={10000} step={100}
                   value={snatchInterval} disabled={snatching}
                   onChange={(val) => { const v = val ?? 300; setSnatchInterval(v); snatchIntervalRef.current = v }}
-                  style={{ width: 110 }} addonAfter="ms"
+                  controls={false}
+                  style={{ width: 68 }}
                 />
+                <Text type="secondary" style={{ fontSize: 12 }}>ms</Text>
               </>
             )}
           </Space>

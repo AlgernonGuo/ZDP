@@ -129,7 +129,8 @@ function TaskCard({ task, isRunning, onStop, onResume, onReuseTargets, onDelete 
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '8px 12px',
+          padding: '0 12px',
+          minHeight: 38,
           borderBottom: '1px solid rgba(0,0,0,0.06)',
           flexWrap: 'wrap',
         }}
@@ -155,7 +156,8 @@ function TaskCard({ task, isRunning, onStop, onResume, onReuseTargets, onDelete 
               step={500}
               value={editInterval}
               onChange={(v) => setEditInterval(v ?? task.interval)}
-              style={{ width: 64, fontSize: 11, height: 22 }}
+              style={{ width: 60, fontSize: 11 }}
+              controls={false}
             />
             <Text type="secondary" style={{ fontSize: 11 }}>ms</Text>
           </div>
