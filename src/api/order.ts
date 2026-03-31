@@ -63,7 +63,8 @@ export function buildOrderPayload(
  * Content-Type: application/x-www-form-urlencoded
  */
 export async function createDeliveryApply(
-  payload: OrderPayload
+  payload: OrderPayload,
+  signal?: AbortSignal
 ): Promise<CreateOrderResponse> {
   const formData = new URLSearchParams()
   formData.append('jsonstr', JSON.stringify(payload))
@@ -76,6 +77,7 @@ export async function createDeliveryApply(
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
+      signal,
     }
   )
   return response.data

@@ -33,6 +33,8 @@ interface StagingPanelProps {
   classList?: InventoryClass[]
 }
 
+const MAX_IN_FLIGHT = 20
+
 const StagingPanel: React.FC<StagingPanelProps> = ({
   items,
   onUpdateItem,
@@ -49,10 +51,15 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
   const [snatchMode, setSnatchMode] = useState(false)
   const [snatchCount, setSnatchCount] = useState(0)
   const [snatchInterval, setSnatchInterval] = useState(300)
+  const [inFlightCount, setInFlightCount] = useState(0)
   const [deleteHover, setDeleteHover] = useState<Record<string, boolean>>({})
   const [clearHover, setClearHover] = useState(false)
   const snatchStopRef = useRef(false)
   const snatchIntervalRef = useRef(300)
+  const snatchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const inFlightRef = useRef(0)
+  const snatchCountRef = useRef(0)
+  const abortControllersRef = useRef<Set<AbortController>>(new Set())
 
   // 记录最新加入的 key，用于触发入场动画
   const [newKey, setNewKey] = useState<string | null>(null)
@@ -99,7 +106,7 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
         messageApi.error(`${item.OnLineInvName} 的件数不能超过库存 ${item.Num} 件`); return
       }
     }
-    if (snatchMode) { await handleSnatch() } else { await handleNormalSubmit() }
+    if (snatchMode) { handleSnatch() } else { await handleNormalSubmit() }
   }
 
   const handleNormalSubmit = async () => {
@@ -120,37 +127,92 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
     }
   }
 
-  const handleSnatch = async () => {
-    snatchStopRef.current = false; setSnatching(true); setSnatchCount(0)
+  const handleSnatch = () => {
+    snatchStopRef.current = false
+    snatchCountRef.current = 0
+    inFlightRef.current = 0
+    abortControllersRef.current.clear()
+    setSnatching(true)
+    setSnatchCount(0)
+    setInFlightCount(0)
+
     const payload = buildOrderPayload(items, orderMemo, orderId)
-    let count = 0
-    const tryOnce = async (): Promise<void> => {
+
+    const stop = (success: boolean, msg: string) => {
       if (snatchStopRef.current) return
-      count++; setSnatchCount(count)
-      try {
-        const res = await createDeliveryApply(payload)
-        if (res.result) {
-          messageApi.success(`抢单成功！（第 ${count} 次尝试）`)
-          setSnatching(false); onClear(); setOrderMemo(''); onSubmitSuccess?.(); return
-        }
-        if (res.errtype === '1') {
-          if (!snatchStopRef.current) setTimeout(() => void tryOnce(), snatchIntervalRef.current)
-          return
-        }
-        messageApi.error(`抢单终止：${res.errtext ?? '未知错误'}（已尝试 ${count} 次）`)
-        setSnatching(false)
-      } catch (e) {
-        console.error('抢单请求失败', e)
-        if (!snatchStopRef.current) setTimeout(() => void tryOnce(), 1000)
+      snatchStopRef.current = true
+      if (snatchTimerRef.current !== null) {
+        clearInterval(snatchTimerRef.current)
+        snatchTimerRef.current = null
+      }
+      // 中止所有在途请求，尽量避免多次下单
+      abortControllersRef.current.forEach((c) => c.abort())
+      abortControllersRef.current.clear()
+      setSnatching(false)
+      setInFlightCount(0)
+      if (success) {
+        messageApi.success(msg)
+        onClear(); setOrderMemo(''); onSubmitSuccess?.()
+      } else {
+        messageApi.error(msg)
       }
     }
-    await tryOnce()
+
+    const fire = () => {
+      if (snatchStopRef.current) return
+      if (inFlightRef.current >= MAX_IN_FLIGHT) return
+
+      const controller = new AbortController()
+      abortControllersRef.current.add(controller)
+      inFlightRef.current++
+
+      const myCount = ++snatchCountRef.current
+      setSnatchCount(myCount)
+
+      createDeliveryApply(payload, controller.signal).then((res) => {
+        if (snatchStopRef.current) return
+        if (res.result) {
+          stop(true, `抢单成功！（第 ${myCount} 次尝试）`)
+          return
+        }
+        if (res.errtype !== '1') {
+          stop(false, `抢单终止：${res.errtext ?? '未知错误'}（已尝试 ${myCount} 次）`)
+        }
+        // errtype === '1'：未到时间，继续
+      }).catch((e: unknown) => {
+        // AbortError 是主动取消，静默处理；其他网络异常继续下一轮
+        if (e instanceof Error && e.name === 'AbortError') return
+        if (e instanceof Error && e.name === 'CanceledError') return  // axios abort
+        console.error('抢单请求失败', e)
+      }).finally(() => {
+        abortControllersRef.current.delete(controller)
+        inFlightRef.current = Math.max(0, inFlightRef.current - 1)
+      })
+    }
+
+    fire()  // 立即发出第一个
+    snatchTimerRef.current = setInterval(fire, snatchIntervalRef.current)
   }
 
   const handleStopSnatch = () => {
-    snatchStopRef.current = true; setSnatching(false)
-    messageApi.info(`已停止抢单（共尝试 ${snatchCount} 次）`)
+    snatchStopRef.current = true
+    if (snatchTimerRef.current !== null) {
+      clearInterval(snatchTimerRef.current)
+      snatchTimerRef.current = null
+    }
+    abortControllersRef.current.forEach((c) => c.abort())
+    abortControllersRef.current.clear()
+    setSnatching(false)
+    setInFlightCount(0)
+    messageApi.info(`已停止抢单（共尝试 ${snatchCountRef.current} 次）`)
   }
+
+  // 轮询 inFlightRef，每 200ms 刷新一次显示，避免高频 setState 导致闪烁
+  useEffect(() => {
+    if (!snatching) { setInFlightCount(0); return }
+    const id = setInterval(() => setInFlightCount(inFlightRef.current), 200)
+    return () => clearInterval(id)
+  }, [snatching])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -328,7 +390,7 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
               <>
                 <Text type="secondary" style={{ fontSize: 12 }}>间隔</Text>
                 <InputNumber
-                  size="small" min={100} max={10000} step={100}
+                  size="small" min={10} max={10000} step={100}
                   value={snatchInterval} disabled={snatching}
                   onChange={(val) => { const v = val ?? 300; setSnatchInterval(v); snatchIntervalRef.current = v }}
                   controls={false}
@@ -342,6 +404,43 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
             <Badge count={snatchCount} overflowCount={9999} style={{ backgroundColor: '#faad14' }} />
           )}
         </div>
+        {snatching && (() => {
+          const ratio = inFlightCount / MAX_IN_FLIGHT
+          const dotColor  = ratio >= 1 ? '#ef4444' : ratio >= 0.6 ? '#faad14' : '#52c41a'
+          const label     = ratio >= 1 ? '发送过快' : ratio >= 0.6 ? '发送较快' : '发送正常'
+          const barColor  = dotColor
+          return (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
+                {/* 交通灯小圆点 */}
+                <span style={{
+                  width: 7, height: 7, borderRadius: '50%',
+                  background: dotColor, flexShrink: 0,
+                  boxShadow: `0 0 4px ${dotColor}`,
+                }} />
+                <Text style={{ fontSize: 12, color: dotColor }}>{label}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  · {inFlightCount} 个请求待回复
+                </Text>
+                {ratio >= 1 && (
+                  <Text style={{ fontSize: 12, color: '#ef4444' }}>
+                    · 订单系统回复速度跟不上，建议将间隔调大
+                  </Text>
+                )}
+              </div>
+              {/* 进度条 */}
+              <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${Math.min(ratio * 100, 100)}%`,
+                  background: barColor,
+                  borderRadius: 2,
+                  transition: 'width 0.2s, background 0.3s',
+                }} />
+              </div>
+            </div>
+          )
+        })()}
 
         {snatching ? (
           <Button block size="large" danger onClick={handleStopSnatch}>

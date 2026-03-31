@@ -19,7 +19,7 @@ import {
   message,
   Grid,
 } from 'antd'
-import { ReloadOutlined, SearchOutlined, FileTextOutlined, StopOutlined, EditOutlined } from '@ant-design/icons'
+import { ReloadOutlined, SearchOutlined, FileTextOutlined, StopOutlined, EditOutlined, ExclamationCircleFilled } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { OrderListItem, DeliveryApplyLineItem } from '../types'
 import { fetchOrderList, fetchOrderCount, closeOrder } from '../api/orderList'
@@ -258,6 +258,7 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
             <Popconfirm
               title="确认关闭此订单？"
               description="关闭后不可恢复，请谨慎操作。"
+              icon={<ExclamationCircleFilled style={{ color: '#faad14' }} />}
               okText="确认关闭"
               cancelText="取消"
               okButtonProps={{ danger: true }}
