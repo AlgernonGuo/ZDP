@@ -96,7 +96,7 @@ interface TaskCardProps {
 
 function TaskCard({ task, isRunning, onStop, onResume, onReuseTargets, onDelete }: TaskCardProps) {
   const [logsOpen, setLogsOpen] = useState(false)
-  const [editInterval, setEditInterval] = useState(task.interval)
+  const [editInterval, setEditInterval] = useState<number | null>(task.interval)
   const [deleteHover, setDeleteHover] = useState(false)
   const logEndRef = useRef<HTMLDivElement>(null)
 
@@ -156,7 +156,8 @@ function TaskCard({ task, isRunning, onStop, onResume, onReuseTargets, onDelete 
               max={30000}
               step={500}
               value={editInterval}
-              onChange={(v) => setEditInterval(v ?? task.interval)}
+              onChange={(v) => setEditInterval(v)}
+              onBlur={() => { if (editInterval === null) setEditInterval(task.interval) }}
               style={{ width: 60, fontSize: 11 }}
               controls={false}
             />
@@ -182,7 +183,7 @@ function TaskCard({ task, isRunning, onStop, onResume, onReuseTargets, onDelete 
                 size="small"
                 icon={<PlayCircleOutlined />}
                 style={{ padding: 0, fontSize: 12 }}
-                onClick={() => onResume({ ...task, interval: editInterval })}
+                onClick={() => onResume({ ...task, interval: editInterval ?? task.interval })}
               >
                 恢复
               </Button>
@@ -487,7 +488,7 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
   const [tasks, setTasks]             = useState<AutoSnatchTask[]>(loadTasksFromStorage)
   const [runningTaskIds, setRunningTaskIds] = useState<Set<string>>(new Set())
   const [orderMemo, setOrderMemo]           = useState('')
-  const [autoSnatchInterval, setAutoSnatchInterval] = useState(2000)
+  const [autoSnatchInterval, setAutoSnatchInterval] = useState<number | null>(2000)
   // taskId → shouldStop
   const stopRefs = useRef<Map<string, boolean>>(new Map())
   const snatchIntervalRef = useRef(2000)
@@ -766,7 +767,7 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
       startTime: new Date().toISOString(),
       targetsSnapshot: snapshot,
       memo: orderMemo,
-      interval: autoSnatchInterval,
+      interval: autoSnatchInterval ?? 2000,
       cusCode: AUTH_CONFIG.CusCode ?? '',
       cusName: AUTH_CONFIG.CusName ?? '',
       status: 'running',
@@ -786,7 +787,7 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
     setPendingStatuses({})
     setPreviewHitItems({})
 
-    snatchIntervalRef.current = autoSnatchInterval
+    snatchIntervalRef.current = autoSnatchInterval ?? 2000
     onSnatchingChange?.(true)
 
     Promise.allSettled(snapshot.map((t) => runTarget(t, taskId, orderMemo, stopRefs, newTask.cusCode, newTask.cusName))).then(() => {
@@ -1068,7 +1069,8 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
                 max={30000}
                 step={500}
                 value={autoSnatchInterval}
-                onChange={(v) => setAutoSnatchInterval(v ?? 2000)}
+                onChange={(v) => setAutoSnatchInterval(v)}
+                onBlur={() => { if (autoSnatchInterval === null) setAutoSnatchInterval(2000) }}
                 style={{ width: 100 }}
                 addonAfter="ms"
               />

@@ -50,7 +50,7 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
   const [snatching, setSnatching] = useState(false)
   const [snatchMode, setSnatchMode] = useState(false)
   const [snatchCount, setSnatchCount] = useState(0)
-  const [snatchInterval, setSnatchInterval] = useState(300)
+  const [snatchInterval, setSnatchInterval] = useState<number | null>(300)
   const [inFlightCount, setInFlightCount] = useState(0)
   const [deleteHover, setDeleteHover] = useState<Record<string, boolean>>({})
   const [clearHover, setClearHover] = useState(false)
@@ -392,7 +392,8 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
                 <InputNumber
                   size="small" min={10} max={10000} step={100}
                   value={snatchInterval} disabled={snatching}
-                  onChange={(val) => { const v = val ?? 300; setSnatchInterval(v); snatchIntervalRef.current = v }}
+                  onChange={(val) => { setSnatchInterval(val); if (val !== null) snatchIntervalRef.current = val }}
+                  onBlur={() => { if (snatchInterval === null) { setSnatchInterval(300); snatchIntervalRef.current = 300 } }}
                   controls={false}
                   style={{ width: 68 }}
                 />
