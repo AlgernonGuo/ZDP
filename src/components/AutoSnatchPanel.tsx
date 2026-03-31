@@ -152,7 +152,7 @@ function TaskCard({ task, isRunning, onStop, onResume, onReuseTargets, onDelete 
           <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             <InputNumber
               size="small"
-              min={500}
+              min={10}
               max={30000}
               step={500}
               value={editInterval}
@@ -628,120 +628,153 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
       }))
     }
 
-    const loop = async (): Promise<void> => {
+    // ── Phase 1: 串行搜索库存，找到后缓存 ────────────────────────────────────
+    while (!cachedHit) {
       if (stopRefsMap.current.get(taskId)) {
         setTaskTargetStatus('stopped')
         addTaskLog('info', `[${invCName} ${standard}] 已停止`)
         return
       }
 
-      if (!cachedHit) {
-        setTaskTargetStatus('searching')
-        addTaskLog('info', `[${invCName} ${standard}] 搜索库存...`)
-        updateTask(taskId, (t) => ({ ...t, searchCount: t.searchCount + 1 }))
-
-        try {
-          const wtStr = wallThickness != null ? String(wallThickness) : undefined
-          const res = await getOnLineStockList(invCName, standard, wtStr)
-
-          if (!res.result || !res.data || res.data.length === 0) {
-            updateTask(taskId, (t) => ({
-              ...t,
-              hitItems: { ...t.hitItems, [id]: null },
-            }))
-            addTaskLog('info', `[${invCName} ${standard}] 暂无库存，等待重试`)
-            await sleep(snatchIntervalRef.current)
-            return loop()
-          }
-
-          const hit = res.data[0]
-          addTaskLog('warn', `[${invCName} ${standard}] 搜到库存！获取详情...`)
-
-          const detailRes = await getOnLineStockDetail({
-            InvCode: hit.InvCode, Free1: hit.Free1,
-            Free2: hit.Free2, Free3: hit.Free3, WhCode: hit.WhCode,
-          })
-
-          const dataArr = Array.isArray(detailRes.data)
-            ? detailRes.data
-            : detailRes.data ? [detailRes.data] : []
-
-          if (!detailRes.result || dataArr.length === 0) {
-            addTaskLog('error', `[${invCName} ${standard}] 获取详情失败，重试`)
-            await sleep(snatchIntervalRef.current)
-            return loop()
-          }
-
-          const detail = dataArr[0]
-          const actualNum = Math.min(userNum, detail.Num)
-          if (detail.Num < userNum) {
-            addTaskLog('warn', `[${invCName} ${standard}] 库存仅 ${detail.Num} 件，低于目标 ${userNum} 件，以库存数量下单`)
-          }
-          cachedHit = {
-            key: String(hit.AutoID),
-            InvCode: detail.InvCode, InvName: detail.InvName,
-            OnLineInvName: detail.OnLineInvName,
-            InvCName: hit.InvCName ?? '',
-            InvStd: detail.InvStd ?? `${detail.Standard}*${detail.Wallthickness}`,
-            Standard: detail.Standard,
-            Wallthickness: String(detail.Wallthickness),
-            Brand: '', WhCode: detail.WhCode, WhName: detail.WhName,
-            Free1: detail.Free1, Free2: detail.Free2, Free3: detail.Free3,
-            UPrice1: detail.UPrice1, Num: detail.Num, STNum: detail.STNum,
-            NumWeight: detail.NumWeight,
-            OnLinePackCount: detail.OnLinePackCount ?? '1',
-            userNum: actualNum, remark,
-          }
-          updateTask(taskId, (t) => ({
-            ...t,
-            hitItems: { ...t.hitItems, [id]: cachedHit },
-          }))
-        } catch (e) {
-          console.error('AutoSnatch search error', e)
-          addTaskLog('error', `[${invCName} ${standard}] 搜索请求异常，等待重试`)
-          cachedHit = null
-          await sleep(snatchIntervalRef.current)
-          return loop()
-        }
-      }
-
-      if (!cachedHit) return loop()
-
-      setTaskTargetStatus('placing')
-      addTaskLog('warn', `[${invCName} ${standard}] 尝试下单...`)
+      setTaskTargetStatus('searching')
+      addTaskLog('info', `[${invCName} ${standard}] 搜索库存...`)
+      updateTask(taskId, (t) => ({ ...t, searchCount: t.searchCount + 1 }))
 
       try {
-        const payload = buildOrderPayload([cachedHit], memo)
-        payload.CusCode = cusCode
-        payload.CusName = cusName
-        const res = await createDeliveryApply(payload)
+        const wtStr = wallThickness != null ? String(wallThickness) : undefined
+        const res = await getOnLineStockList(invCName, standard, wtStr)
 
-        if (res.result) {
-          setTaskTargetStatus('success')
-          addTaskLog('success', `[${invCName} ${standard}] 抢单成功！`)
-          messageApi.success(`${invCName} ${standard} 抢单成功！`)
-          return
-        }
-
-        if (res.errtype === '1') {
-          addTaskLog('info', `[${invCName} ${standard}] 未到下单时间（${res.errtext ?? ''}），保留缓存等待重试`)
+        if (!res.result || !res.data || res.data.length === 0) {
+          updateTask(taskId, (t) => ({
+            ...t,
+            hitItems: { ...t.hitItems, [id]: null },
+          }))
+          addTaskLog('info', `[${invCName} ${standard}] 暂无库存，等待重试`)
           await sleep(snatchIntervalRef.current)
-          return loop()
+          continue
         }
 
-        addTaskLog('error', `[${invCName} ${standard}] 下单失败：${res.errtext ?? '未知错误'}`)
-        cachedHit = null
-        setTaskTargetStatus('failed')
+        const hit = res.data[0]
+        addTaskLog('warn', `[${invCName} ${standard}] 搜到库存！获取详情...`)
+
+        const detailRes = await getOnLineStockDetail({
+          InvCode: hit.InvCode, Free1: hit.Free1,
+          Free2: hit.Free2, Free3: hit.Free3, WhCode: hit.WhCode,
+        })
+
+        const dataArr = Array.isArray(detailRes.data)
+          ? detailRes.data
+          : detailRes.data ? [detailRes.data] : []
+
+        if (!detailRes.result || dataArr.length === 0) {
+          addTaskLog('error', `[${invCName} ${standard}] 获取详情失败，重试`)
+          await sleep(snatchIntervalRef.current)
+          continue
+        }
+
+        const detail = dataArr[0]
+        const actualNum = Math.min(userNum, detail.Num)
+        if (detail.Num < userNum) {
+          addTaskLog('warn', `[${invCName} ${standard}] 库存仅 ${detail.Num} 件，低于目标 ${userNum} 件，以库存数量下单`)
+        }
+        cachedHit = {
+          key: String(hit.AutoID),
+          InvCode: detail.InvCode, InvName: detail.InvName,
+          OnLineInvName: detail.OnLineInvName,
+          InvCName: hit.InvCName ?? '',
+          InvStd: detail.InvStd ?? `${detail.Standard}*${detail.Wallthickness}`,
+          Standard: detail.Standard,
+          Wallthickness: String(detail.Wallthickness),
+          Brand: '', WhCode: detail.WhCode, WhName: detail.WhName,
+          Free1: detail.Free1, Free2: detail.Free2, Free3: detail.Free3,
+          UPrice1: detail.UPrice1, Num: detail.Num, STNum: detail.STNum,
+          NumWeight: detail.NumWeight,
+          OnLinePackCount: detail.OnLinePackCount ?? '1',
+          userNum: actualNum, remark,
+        }
+        updateTask(taskId, (t) => ({
+          ...t,
+          hitItems: { ...t.hitItems, [id]: cachedHit },
+        }))
       } catch (e) {
-        console.error('AutoSnatch place error', e)
-        addTaskLog('error', `[${invCName} ${standard}] 下单请求异常，清除缓存等待重试`)
-        cachedHit = null
+        console.error('AutoSnatch search error', e)
+        addTaskLog('error', `[${invCName} ${standard}] 搜索请求异常，等待重试`)
         await sleep(snatchIntervalRef.current)
-        return loop()
       }
     }
 
-    await loop()
+    // ── Phase 2: 并发流水线下单 ──────────────────────────────────────────────
+    if (stopRefsMap.current.get(taskId)) {
+      setTaskTargetStatus('stopped')
+      addTaskLog('info', `[${invCName} ${standard}] 已停止`)
+      return
+    }
+
+    setTaskTargetStatus('placing')
+    addTaskLog('warn', `[${invCName} ${standard}] 开始抢单...`)
+
+    const payload = buildOrderPayload([cachedHit], memo)
+    payload.CusCode = cusCode
+    payload.CusName = cusName
+
+    await new Promise<void>((resolve) => {
+      const abortControllers = new Set<AbortController>()
+      let inFlight = 0
+      let done = false
+      let timerId: ReturnType<typeof setInterval> | null = null
+
+      const stopPlacement = () => {
+        if (done) return
+        done = true
+        abortControllers.forEach((c) => c.abort())
+        abortControllers.clear()
+        if (timerId !== null) { clearInterval(timerId); timerId = null }
+        resolve()
+      }
+
+      const fire = () => {
+        if (done) return
+        if (stopRefsMap.current.get(taskId)) {
+          setTaskTargetStatus('stopped')
+          addTaskLog('info', `[${invCName} ${standard}] 已停止`)
+          stopPlacement()
+          return
+        }
+        if (inFlight >= 20) return
+
+        const controller = new AbortController()
+        abortControllers.add(controller)
+        inFlight++
+
+        createDeliveryApply(payload, controller.signal).then((res) => {
+          if (done) return
+          if (res.result) {
+            setTaskTargetStatus('success')
+            addTaskLog('success', `[${invCName} ${standard}] 抢单成功！`)
+            messageApi.success(`${invCName} ${standard} 抢单成功！`)
+            stopPlacement()
+            return
+          }
+          if (res.errtype === '1') {
+            addTaskLog('info', `[${invCName} ${standard}] 未到下单时间（${res.errtext ?? ''}），继续等待`)
+            return
+          }
+          addTaskLog('error', `[${invCName} ${standard}] 下单失败：${res.errtext ?? '未知错误'}`)
+          setTaskTargetStatus('failed')
+          stopPlacement()
+        }).catch((e: unknown) => {
+          if (e instanceof Error && (e.name === 'AbortError' || e.name === 'CanceledError')) return
+          console.error('AutoSnatch place error', e)
+          addTaskLog('error', `[${invCName} ${standard}] 下单请求异常`)
+        }).finally(() => {
+          abortControllers.delete(controller)
+          inFlight = Math.max(0, inFlight - 1)
+        })
+      }
+
+      fire()
+      timerId = setInterval(fire, snatchIntervalRef.current)
+    })
   }, [updateTask, messageApi])
 
   // ── 发起新任务 ─────────────────────────────────────────────────────────
@@ -1065,7 +1098,7 @@ function AutoSnatchPanel({ classList, onSnatchingChange }: AutoSnatchPanelProps)
             <div style={{ flexShrink: 0 }}>
               <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 3 }}>间隔</Text>
               <InputNumber
-                min={500}
+                min={10}
                 max={30000}
                 step={500}
                 value={autoSnatchInterval}
