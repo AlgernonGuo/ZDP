@@ -33,7 +33,7 @@ interface StagingPanelProps {
   classList?: InventoryClass[]
 }
 
-const MAX_IN_FLIGHT = 20
+const MAX_IN_FLIGHT = 30
 
 const StagingPanel: React.FC<StagingPanelProps> = ({
   items,
