@@ -418,6 +418,7 @@ function App() {
                 onAddToStaging={handleAddToStaging}
                 stagingKeys={stagingKeys}
                 onCusChange={handleCusChange}
+                classList={classList}
               />
           </div>
           <div

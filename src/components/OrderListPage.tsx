@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Table,
   Tag,
@@ -133,14 +133,8 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
     []
   )
 
+  // 初次挂载（refreshKey=0）及切换到本页时（refreshKey 递增）均触发一次加载
   useEffect(() => {
-    load(1, '', '', [null, null], 20)
-  }, [load])
-
-  // 切换到本页时刷新（跳过初次挂载，初次由上面的 effect 处理）
-  const isInitialMountRef = useRef(true)
-  useEffect(() => {
-    if (isInitialMountRef.current) { isInitialMountRef.current = false; return }
     setMaker('')
     setStatus('')
     setDateRange([null, null])

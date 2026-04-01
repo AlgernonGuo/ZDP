@@ -11,7 +11,7 @@ import {
 } from 'antd'
 import { SearchOutlined, PlusOutlined, CheckCircleFilled } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
-import { getCustomerList, getInventoryClassList, getOnLineStockList, getOnLineStockDetail } from '../api/inventory'
+import { getCustomerList, getOnLineStockList, getOnLineStockDetail } from '../api/inventory'
 import { setAuthConfig, AUTH_CONFIG } from '../api/client'
 import type { CustomerItem, InventoryClass, StockItem, StagingItem } from '../types'
 
@@ -23,9 +23,10 @@ interface SearchPanelProps {
   onAddToStaging: (item: StagingItem) => void
   stagingKeys: Set<string>
   onCusChange: (cusCode: string, cusName: string) => void
+  classList: InventoryClass[]
 }
 
-const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, onCusChange }) => {
+const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, onCusChange, classList }) => {
   const screens = Grid.useBreakpoint()
   const [messageApi, contextHolder] = message.useMessage()
 
@@ -33,10 +34,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
   const [customerList, setCustomerList] = useState<CustomerItem[]>([])
   const [customerLoading, setCustomerLoading] = useState(false)
   const [selectedCusCode, setSelectedCusCode] = useState<string>('')
-
-  // 品种列表（接口1数据）
-  const [classList, setClassList] = useState<InventoryClass[]>([])
-  const [classLoading, setClassLoading] = useState(false)
 
   // 三级联动选中值
   const [selectedClass, setSelectedClass] = useState<string>('')
@@ -95,21 +92,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
     setHasSearched(false)
   }
 
-  // 加载品种列表
-  useEffect(() => {
-    setClassLoading(true)
-    getInventoryClassList()
-      .then((res) => {
-        if (res.result) {
-          setClassList(res.data)
-        } else {
-          messageApi.error('获取品种列表失败')
-        }
-      })
-      .catch(() => messageApi.error('网络错误，获取品种列表失败'))
-      .finally(() => setClassLoading(false))
-  }, [messageApi])
-
+  // 加载品种列表由父组件（App.tsx）统一管理，此处不再单独请求
   // 品种变更：更新规格列表，重置下游
   const handleClassChange = (value: string) => {
     setSelectedClass(value)
@@ -405,7 +388,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
             style={{ width: '100%' }}
             value={selectedClass || undefined}
             onChange={handleClassChange}
-            loading={classLoading}
+            loading={false}
             showSearch
             optionFilterProp="label"
             disabled={!selectedCusCode}
