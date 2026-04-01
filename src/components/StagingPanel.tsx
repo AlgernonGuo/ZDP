@@ -15,7 +15,7 @@ import {
   Space,
   Badge,
 } from 'antd'
-import { DeleteOutlined, SendOutlined, ThunderboltOutlined, ExclamationCircleFilled } from '@ant-design/icons'
+import { DeleteOutlined, SendOutlined, ThunderboltOutlined, ExclamationCircleFilled, ClockCircleOutlined, WarningOutlined, LoadingOutlined } from '@ant-design/icons'
 import { buildOrderPayload, createDeliveryApply } from '../api/order'
 import type { StagingItem, InventoryClass } from '../types'
 
@@ -35,6 +35,8 @@ interface StagingPanelProps {
 
 const MAX_IN_FLIGHT = 30
 
+type SnatchPhase = 'waiting' | 'open' | 'no-stock' | null
+
 const StagingPanel: React.FC<StagingPanelProps> = ({
   items,
   onUpdateItem,
@@ -51,11 +53,16 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
   const [snatchMode, setSnatchMode] = useState(false)
   const [snatchCount, setSnatchCount] = useState(0)
   const [snatchInterval, setSnatchInterval] = useState<number | null>(300)
+  const [stopOnNoStock, setStopOnNoStock] = useState(false)
+  const [snatchPhase, setSnatchPhase] = useState<SnatchPhase>(null)
+  const [snatchStatusMsg, setSnatchStatusMsg] = useState('')
+  const [noStockNames, setNoStockNames] = useState<string[]>([])
   const [inFlightCount, setInFlightCount] = useState(0)
   const [deleteHover, setDeleteHover] = useState<Record<string, boolean>>({})
   const [clearHover, setClearHover] = useState(false)
   const snatchStopRef = useRef(false)
   const snatchIntervalRef = useRef(300)
+  const stopOnNoStockRef = useRef(false)
   const snatchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const inFlightRef = useRef(0)
   const snatchCountRef = useRef(0)
@@ -131,10 +138,14 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
     snatchStopRef.current = false
     snatchCountRef.current = 0
     inFlightRef.current = 0
+    stopOnNoStockRef.current = stopOnNoStock
     abortControllersRef.current.clear()
     setSnatching(true)
     setSnatchCount(0)
     setInFlightCount(0)
+    setSnatchPhase(null)
+    setSnatchStatusMsg('')
+    setNoStockNames([])
 
     const payload = buildOrderPayload(items, orderMemo, orderId)
 
@@ -150,6 +161,7 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
       abortControllersRef.current.clear()
       setSnatching(false)
       setInFlightCount(0)
+      setSnatchPhase(null)
       if (success) {
         messageApi.success(msg)
         onClear(); setOrderMemo(''); onSubmitSuccess?.()
@@ -175,10 +187,39 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
           stop(true, `抢单成功！（第 ${myCount} 次尝试）`)
           return
         }
+
+        // data === null：未到开放时间
+        if (res.data === null || res.data === undefined) {
+          setSnatchPhase('waiting')
+          setSnatchStatusMsg(res.errtext ?? '等待开放中')
+          // 不弹 toast，状态区已显示
+          return
+        }
+
+        // 检测是否有明细无库存（StockNum === 0）
+        const noStockItems: string[] = (res.data?.DeliveryApplysList ?? [])
+          .filter((d) => d.StockNum === 0)
+          .map((d) => d.InvStd ?? d.InvName ?? '未知')
+        const hasNoStock = noStockItems.length > 0
+
+        if (hasNoStock) {
+          setSnatchPhase('no-stock')
+          setNoStockNames(noStockItems)
+          setSnatchStatusMsg(res.errtext ?? '库存不足')
+          if (stopOnNoStockRef.current) {
+            stop(false, `无库存已停止（已尝试 ${myCount} 次）：${noStockItems.join('、')}`)
+            return
+          }
+          return
+        }
+
+        // data 存在但非无库存：窗口已开放，其他失败原因
+        setSnatchPhase('open')
+        setSnatchStatusMsg(res.errtext ?? '下单失败，重试中')
+
         if (res.errtype !== '1') {
           stop(false, `抢单终止：${res.errtext ?? '未知错误'}（已尝试 ${myCount} 次）`)
         }
-        // errtype === '1'：未到时间，继续
       }).catch((e: unknown) => {
         // AbortError 是主动取消，静默处理；其他网络异常继续下一轮
         if (e instanceof Error && e.name === 'AbortError') return
@@ -368,14 +409,64 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
           </>
         )}
 
-        {/* 抢单模式（普通模式子选项） */}
-        {snatchMode && !snatching && (
-          <div style={{ marginBottom: 8, padding: '5px 10px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8 }}>
-            <Text style={{ fontSize: 12, color: '#ad6800' }}>
-              开启后将持续尝试下单，直到成功或遇到非时间限制的错误（如无货）
-            </Text>
-          </div>
-        )}
+        {/* 抢单模式横幅：未抢单时显示说明，抢单中显示实时状态（复用同一位置，无布局抖动） */}
+        {snatchMode && (() => {
+          // 未抢单：原始说明
+          if (!snatching) {
+            return (
+              <div style={{ marginBottom: 8, padding: '5px 10px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8 }}>
+                <Text style={{ fontSize: 12, color: '#ad6800' }}>
+                  开启后将持续尝试下单，直到成功或遇到非时间限制的错误
+                  {stopOnNoStock ? '（无库存时自动停止）' : '（无库存时继续尝试）'}
+                </Text>
+              </div>
+            )
+          }
+          // 抢单中：按阶段显示实时状态
+          type BannerCfg = { bg: string; border: string; icon: React.ReactNode; text: string; textColor: string; sub?: string }
+          const cfgMap: Record<NonNullable<SnatchPhase> | '__init__', BannerCfg> = {
+            __init__: {
+              bg: '#fffbe6', border: '#ffe58f',
+              icon: <LoadingOutlined style={{ color: '#ad6800', fontSize: 12 }} />,
+              text: '正在快速发单中，等待服务器响应…',
+              textColor: '#ad6800',
+            },
+            waiting: {
+              bg: '#e6f4ff', border: '#91caff',
+              icon: <ClockCircleOutlined style={{ color: '#1677ff', fontSize: 12 }} />,
+              text: '持续高频发单中，等待下单窗口开放',
+              textColor: '#1677ff',
+              sub: snatchStatusMsg || undefined,
+            },
+            open: {
+              bg: '#f6ffed', border: '#b7eb8f',
+              icon: <ThunderboltOutlined style={{ color: '#389e0d', fontSize: 12 }} />,
+              text: '下单窗口已开放！正在全速抢单中',
+              textColor: '#389e0d',
+            },
+            'no-stock': {
+              bg: '#fff2f0', border: '#ffa39e',
+              icon: <WarningOutlined style={{ color: '#cf1322', fontSize: 12 }} />,
+              text: stopOnNoStock ? '库存不足，已停止' : '检测到库存不足，持续发单中',
+              textColor: '#cf1322',
+              sub: noStockNames.length > 0 ? noStockNames.join('、') : undefined,
+            },
+          }
+          const cfg = cfgMap[snatchPhase ?? '__init__']
+          return (
+            <div style={{ marginBottom: 8, padding: '5px 10px', background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                {cfg.icon}
+                <Text style={{ fontSize: 12, color: cfg.textColor }}>{cfg.text}</Text>
+              </div>
+              {cfg.sub && (
+                <Text style={{ fontSize: 11, color: '#595959', display: 'block', marginTop: 2, paddingLeft: 17 }}>
+                  {cfg.sub}
+                </Text>
+              )}
+            </div>
+          )
+        })()}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, minHeight: 28 }}>
           <Space size={6} style={{ lineHeight: 1 }}>
             <ThunderboltOutlined style={{ color: snatchMode ? '#faad14' : '#bfbfbf' }} />
@@ -398,6 +489,14 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
                   style={{ width: 68 }}
                 />
                 <Text type="secondary" style={{ fontSize: 12 }}>ms</Text>
+                <Divider type="vertical" style={{ margin: '0 2px' }} />
+                <Text type="secondary" style={{ fontSize: 12 }}>无货停止</Text>
+                <Switch
+                  size="small"
+                  checked={stopOnNoStock}
+                  onChange={(v) => { setStopOnNoStock(v); stopOnNoStockRef.current = v }}
+                  disabled={snatching}
+                />
               </>
             )}
           </Space>
@@ -407,13 +506,11 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
         </div>
         {snatching && (() => {
           const ratio = inFlightCount / MAX_IN_FLIGHT
-          const dotColor  = ratio >= 1 ? '#ef4444' : ratio >= 0.6 ? '#faad14' : '#52c41a'
-          const label     = ratio >= 1 ? '发送过快' : ratio >= 0.6 ? '发送较快' : '发送正常'
-          const barColor  = dotColor
+          const dotColor = ratio >= 1 ? '#ef4444' : ratio >= 0.6 ? '#faad14' : '#52c41a'
+          const label    = ratio >= 1 ? '发送过快' : ratio >= 0.6 ? '发送较快' : '发送正常'
           return (
             <div style={{ marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
-                {/* 交通灯小圆点 */}
                 <span style={{
                   width: 7, height: 7, borderRadius: '50%',
                   background: dotColor, flexShrink: 0,
@@ -429,12 +526,11 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
                   </Text>
                 )}
               </div>
-              {/* 进度条 */}
               <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%',
                   width: `${Math.min(ratio * 100, 100)}%`,
-                  background: barColor,
+                  background: dotColor,
                   borderRadius: 2,
                   transition: 'width 0.2s, background 0.3s',
                 }} />

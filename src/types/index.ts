@@ -167,11 +167,21 @@ export interface OrderPayload {
   DeliveryApplysList: OrderItemPayload[]
 }
 
+export interface CreateOrderResponseItem {
+  InvName?: string
+  InvStd?: string
+  StockNum: number
+}
+
 export interface CreateOrderResponse {
   result: boolean
   errtype?: string | null
   errtext?: string | null
-  data?: unknown
+  data?: {
+    DeliveryApplysList?: CreateOrderResponseItem[]
+    ErrorText?: string | null
+    [key: string]: unknown
+  }
 }
 
 // ===== 查询表单 =====
