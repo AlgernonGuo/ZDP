@@ -137,8 +137,23 @@ client.interceptors.request.use((config) => {
   return config
 })
 
+// 未登录事件总线：任意模块可监听 'unauthorized' 事件
+export const authBus = new EventTarget()
+
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // axios fetch adapter 下，response.request 是原生 Response 对象
+    // response.request.url 是跟随重定向后的最终 URL
+    const finalUrl: string =
+      (response.request as Response)?.url ??
+      (response.request as XMLHttpRequest)?.responseURL ??
+      ''
+    if (finalUrl.includes('NotLoginInformation')) {
+      clearAuthConfig()
+      authBus.dispatchEvent(new Event('unauthorized'))
+    }
+    return response
+  },
   (error) => {
     console.error('请求失败:', error)
     return Promise.reject(error)

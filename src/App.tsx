@@ -9,7 +9,7 @@ import StagingPanel from './components/StagingPanel'
 import OrderListPage from './components/OrderListPage'
 import LoginPage from './components/LoginPage'
 import AutoSnatchPanel from './components/AutoSnatchPanel'
-import { isAuthenticated, clearAuthConfig, AUTH_CONFIG } from './api/client'
+import { isAuthenticated, clearAuthConfig, AUTH_CONFIG, authBus } from './api/client'
 import { getInventoryClassList } from './api/inventory'
 import type { StagingItem, InventoryClass } from './types'
 import './App.css'
@@ -100,6 +100,13 @@ function App() {
     setCusCode('')
     setAuthed(false)
   }, [])
+
+  // 后端 Session 失效时自动跳回登录页
+  useEffect(() => {
+    const onUnauthorized = () => handleLogout()
+    authBus.addEventListener('unauthorized', onUnauthorized)
+    return () => authBus.removeEventListener('unauthorized', onUnauthorized)
+  }, [handleLogout])
 
   useEffect(() => {
     if (authed) {
