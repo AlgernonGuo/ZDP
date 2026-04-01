@@ -13,7 +13,6 @@ import {
   Divider,
   Switch,
   Space,
-  Badge,
 } from 'antd'
 import { DeleteOutlined, SendOutlined, ThunderboltOutlined, ExclamationCircleFilled, ClockCircleOutlined, WarningOutlined, LoadingOutlined } from '@ant-design/icons'
 import { buildOrderPayload, createDeliveryApply } from '../api/order'
@@ -454,94 +453,110 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
           }
           const cfg = cfgMap[snatchPhase ?? '__init__']
           return (
-            <div style={{ marginBottom: 8, padding: '5px 10px', background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                {cfg.icon}
-                <Text style={{ fontSize: 12, color: cfg.textColor }}>{cfg.text}</Text>
-              </div>
-              {cfg.sub && (
-                <Text style={{ fontSize: 11, color: '#595959', display: 'block', marginTop: 2, paddingLeft: 17 }}>
-                  {cfg.sub}
-                </Text>
-              )}
-            </div>
-          )
-        })()}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, minHeight: 28 }}>
-          <Space size={6} style={{ lineHeight: 1 }}>
-            <ThunderboltOutlined style={{ color: snatchMode ? '#faad14' : '#bfbfbf' }} />
-            <Text style={{ fontSize: 13 }}>抢单模式</Text>
-            <Switch
-              size="small"
-              checked={snatchMode}
-              onChange={setSnatchMode}
-              disabled={snatching}
-            />
-            {snatchMode && (
-              <>
-                <Text type="secondary" style={{ fontSize: 12 }}>间隔</Text>
-                <InputNumber
-                  size="small" min={10} max={10000} step={100}
-                  value={snatchInterval} disabled={snatching}
-                  onChange={(val) => { setSnatchInterval(val); if (val !== null) snatchIntervalRef.current = val }}
-                  onBlur={() => { if (snatchInterval === null) { setSnatchInterval(300); snatchIntervalRef.current = 300 } }}
-                  controls={false}
-                  style={{ width: 68 }}
-                />
-                <Text type="secondary" style={{ fontSize: 12 }}>ms</Text>
-                <Divider type="vertical" style={{ margin: '0 2px' }} />
-                <Text type="secondary" style={{ fontSize: 12 }}>无货停止</Text>
-                <Switch
-                  size="small"
-                  checked={stopOnNoStock}
-                  onChange={(v) => { setStopOnNoStock(v); stopOnNoStockRef.current = v }}
-                  disabled={snatching}
-                />
-              </>
-            )}
-          </Space>
-          {snatching && (
-            <Badge count={snatchCount} overflowCount={9999} style={{ backgroundColor: '#faad14' }} />
-          )}
-        </div>
-        {snatching && (() => {
-          const ratio = inFlightCount / MAX_IN_FLIGHT
-          const dotColor = ratio >= 1 ? '#ef4444' : ratio >= 0.6 ? '#faad14' : '#52c41a'
-          const label    = ratio >= 1 ? '发送过快' : ratio >= 0.6 ? '发送较快' : '发送正常'
-          return (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
-                <span style={{
-                  width: 7, height: 7, borderRadius: '50%',
-                  background: dotColor, flexShrink: 0,
-                  boxShadow: `0 0 4px ${dotColor}`,
-                }} />
-                <Text style={{ fontSize: 12, color: dotColor }}>{label}</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  · {inFlightCount} 个请求待回复
-                </Text>
-                {ratio >= 1 && (
-                  <Text style={{ fontSize: 12, color: '#ef4444' }}>
-                    · 订单系统回复速度跟不上，建议将间隔调大
+            <div style={{ marginBottom: 8, padding: '5px 10px', background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 8, transition: 'background 0.25s, border-color 0.25s' }}>
+              <div key={snatchPhase ?? '__init__'} className="snatch-banner-content">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {cfg.icon}
+                  <Text style={{ fontSize: 12, color: cfg.textColor }}>{cfg.text}</Text>
+                </div>
+                {cfg.sub && (
+                  <Text style={{ fontSize: 11, color: '#595959', display: 'block', marginTop: 2, paddingLeft: 17 }}>
+                    {cfg.sub}
                   </Text>
                 )}
               </div>
-              <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${Math.min(ratio * 100, 100)}%`,
-                  background: dotColor,
-                  borderRadius: 2,
-                  transition: 'width 0.2s, background 0.3s',
-                }} />
-              </div>
             </div>
           )
         })()}
+        {/* 控制行与交通灯互斥：抢单前显示开关，抢单中替换为并发状态 */}
+        <div style={{ marginBottom: 8, minHeight: 28 }}>
+          {!snatching ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Space size={6} style={{ lineHeight: 1 }}>
+                <ThunderboltOutlined style={{ color: snatchMode ? '#faad14' : '#bfbfbf' }} />
+                <Text style={{ fontSize: 13 }}>抢单模式</Text>
+                <Switch
+                  size="small"
+                  checked={snatchMode}
+                  onChange={setSnatchMode}
+                />
+                {snatchMode && (
+                  <>
+                    <Text type="secondary" style={{ fontSize: 12 }}>间隔</Text>
+                    <InputNumber
+                      size="small" min={10} max={10000} step={100}
+                      value={snatchInterval}
+                      onChange={(val) => { setSnatchInterval(val); if (val !== null) snatchIntervalRef.current = val }}
+                      onBlur={() => { if (snatchInterval === null) { setSnatchInterval(300); snatchIntervalRef.current = 300 } }}
+                      controls={false}
+                      style={{ width: 68 }}
+                    />
+                    <Text type="secondary" style={{ fontSize: 12 }}>ms</Text>
+                    <Divider type="vertical" style={{ margin: '0 2px' }} />
+                    <Text type="secondary" style={{ fontSize: 12 }}>无货停止</Text>
+                    <Switch
+                      size="small"
+                      checked={stopOnNoStock}
+                      onChange={(v) => { setStopOnNoStock(v); stopOnNoStockRef.current = v }}
+                    />
+                  </>
+                )}
+              </Space>
+            </div>
+          ) : (() => {
+            const ratio = inFlightCount / MAX_IN_FLIGHT
+            const dotColor = ratio >= 1 ? '#ef4444' : ratio >= 0.6 ? '#faad14' : '#52c41a'
+            const label    = ratio >= 1 ? '发送过快' : ratio >= 0.6 ? '发送较快' : '发送正常'
+            return (
+              <div className="snatch-banner-content">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
+                  <span style={{
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: dotColor, flexShrink: 0,
+                    boxShadow: `0 0 4px ${dotColor}`,
+                  }} />
+                  <Text style={{ fontSize: 12, color: dotColor }}>{label}</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    · {inFlightCount} 个请求待回复
+                  </Text>
+                  {ratio >= 1 && (
+                    <Text style={{ fontSize: 12, color: '#ef4444' }}>
+                      · 订单系统回复速度跟不上，建议将间隔调大
+                    </Text>
+                  )}
+                  <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2, overflow: 'visible' }}>
+                    <span
+                      key={snatchCount}
+                      className="snatch-count-tick"
+                      style={{
+                        fontSize: 12,
+                        fontVariantNumeric: 'tabular-nums',
+                        fontFeatureSettings: '"tnum"',
+                        color: '#8c8c8c',
+                      }}
+                    >
+                      {snatchCount.toLocaleString()}
+                    </span>
+                    <Text type="secondary" style={{ fontSize: 12 }}> 次</Text>
+                  </span>
+                </div>
+                <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${Math.min(ratio * 100, 100)}%`,
+                    background: dotColor,
+                    borderRadius: 2,
+                    transition: 'width 0.2s, background 0.3s',
+                  }} />
+                </div>
+              </div>
+            )
+          })()}
+        </div>
 
         {snatching ? (
           <Button block size="large" danger onClick={handleStopSnatch}>
-            停止抢单（已尝试 {snatchCount} 次）
+            停止抢单
           </Button>
         ) : (
           <Button
