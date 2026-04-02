@@ -31,7 +31,7 @@ export function buildOrderPayload(
       Free2: item.Free2,
       Free3: item.Free3,
       PackCount: item.OnLinePackCount,
-      Information: `${item.OnLineInvName},${item.userNum}`,
+      Information: `${item.OnLineInvName},${item.OnLinePackCount}`,
       Price: item.UPrice1,
       Num: String(item.userNum),
       TheroQuantity: theroQuantity,

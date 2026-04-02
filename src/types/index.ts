@@ -148,7 +148,7 @@ export interface OrderItemPayload {
   Free2: string
   Free3: string
   PackCount: string         // 件包数
-  Information: string       // 货名+规格+件数的描述，如"螺旋管529*6*12000,1"
+  Information: string       // 货名+包装规格的描述，如"螺旋管529*6*12000,6"
   Price: number             // 单价
   Num: string               // 件数（字符串）
   TheroQuantity: number     // 理论重量
