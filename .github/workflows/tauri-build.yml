@@ -129,7 +129,16 @@ jobs:
             npm run tauri -- android init
           fi
 
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > /tmp/zdp-release.keystore
+
       - name: Build Android app (APK + AAB)
+        env:
+          ANDROID_SIGNING_STORE_PATH: /tmp/zdp-release.keystore
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: npm run tauri -- android build --apk --aab --target aarch64 armv7
 
       - name: Upload Android APK to Release
@@ -138,7 +147,7 @@ jobs:
         with:
           draft: true
           files: |
-            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            src-tauri/gen/android/app/build/outputs/apk/**/release/*.apk
             src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
