@@ -84,11 +84,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         bordered={false}
       >
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="40" height="40" rx="10" fill="#eff6ff"/>
+              <rect x="8" y="17" width="24" height="6" rx="3" fill="#1677ff"/>
+              <rect x="8" y="10" width="24" height="4" rx="2" fill="#93c5fd"/>
+              <rect x="8" y="26" width="24" height="4" rx="2" fill="#93c5fd"/>
+              <circle cx="14" cy="20" r="2.5" fill="#ffffff"/>
+              <circle cx="26" cy="20" r="2.5" fill="#ffffff"/>
+            </svg>
+          </div>
           <Title level={3} style={{ margin: 0, color: '#111827', fontWeight: 700 }}>
             ZDP 钢管管理系统
           </Title>
           <Text style={{ fontSize: 13, color: '#6b7280' }}>
-            请使用手机号登录
+            钢管库存查询 · 提货申请系统
           </Text>
         </div>
 
@@ -96,6 +106,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           <Form.Item
             name="phone"
             label="手机号"
+            style={{ marginBottom: 20 }}
             rules={[
               { required: true, message: '请输入手机号' },
               { pattern: /^1\d{10}$/, message: '请输入有效的 11 位手机号' },
@@ -113,6 +124,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             name="password"
             label="密码"
             rules={[{ required: true, message: '请输入密码' }]}
+            style={{ marginBottom: 20 }}
           >
             <Input.Password
               prefix={<LockOutlined style={{ color: '#9ca3af' }} />}

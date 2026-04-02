@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Layout, Typography, Button, Tooltip, Menu, ConfigProvider, Popover, Grid, Segmented } from 'antd'
+import { Layout, Typography, Button, Tooltip, Menu, ConfigProvider, Popover, Grid, Segmented, Divider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import 'dayjs/locale/zh-cn'
 import dayjs from 'dayjs'
@@ -162,6 +162,12 @@ function App() {
           colorFillAlter: '#f8fafc',
           motionDurationSlow: '0.16s',
           motionDurationMid: '0.1s',
+          colorBgContainer: '#ffffff',
+          colorBgElevated: '#ffffff',
+          colorFillContent: '#f5f7fa',
+          lineHeight: 1.57,
+          controlHeight: 34,
+          controlHeightSM: 26,
         },
         components: {
           Table: {
@@ -216,9 +222,19 @@ function App() {
             borderBottom: '1px solid rgba(0,0,0,0.08)',
           }}
         >
-          <Title level={4} style={{ color: '#1677ff', margin: 0, whiteSpace: 'nowrap', letterSpacing: '0.01em' }}>
-          {screens.sm ? 'ZDP 钢管库存系统' : 'ZDP'}
-          </Title>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <svg width="24" height="24" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="40" height="40" rx="10" fill="#eff6ff"/>
+              <rect x="8" y="17" width="24" height="6" rx="3" fill="#1677ff"/>
+              <rect x="8" y="10" width="24" height="4" rx="2" fill="#93c5fd"/>
+              <rect x="8" y="26" width="24" height="4" rx="2" fill="#93c5fd"/>
+              <circle cx="14" cy="20" r="2.5" fill="#ffffff"/>
+              <circle cx="26" cy="20" r="2.5" fill="#ffffff"/>
+            </svg>
+            <Title level={4} style={{ color: '#1677ff', margin: 0, whiteSpace: 'nowrap', letterSpacing: '0.01em' }}>
+              {screens.sm ? 'ZDP 钢管库存系统' : 'ZDP'}
+            </Title>
+          </div>
 
         {/* 导航菜单 */}
         <Menu
@@ -241,7 +257,7 @@ function App() {
 
         {/* 用户信息 + 退出 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          {AUTH_CONFIG.UserName && (
+          {AUTH_CONFIG.UserName && screens.md && (
             <Text
               ellipsis
               style={{
@@ -253,6 +269,9 @@ function App() {
             >
               {AUTH_CONFIG.UserName}
             </Text>
+          )}
+          {AUTH_CONFIG.UserName && screens.md && cusName && (
+            <Divider type="vertical" style={{ margin: 0 }} />
           )}
           {cusName && (
             <Text

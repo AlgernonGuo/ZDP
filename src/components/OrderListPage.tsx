@@ -30,11 +30,11 @@ const { Text } = Typography
 const { RangePicker } = DatePicker
 
 const STATUS_COLOR: Record<string, string> = {
-  已关闭: 'default',
-  已确认发货: 'success',
-  待审核: 'processing',
-  已审核: 'blue',
-  已删除: 'error',
+  待审核: '#d97706',
+  已审核: '#2563eb',
+  已确认发货: '#16a34a',
+  已关闭: '#6b7280',
+  已删除: '#dc2626',
 }
 
 const STATUS_OPTIONS = [
@@ -79,6 +79,7 @@ const LINE_COLUMNS: ColumnsType<DeliveryApplyLineItem> = [
 
 export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
   const screens = Grid.useBreakpoint()
+  const isMobile = !screens.sm
   const [data, setData] = useState<OrderListItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -323,14 +324,15 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
           />
         </div>
 
-        <Space size={8}>
-          <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>查询</Button>
-          <Button onClick={handleReset}>重置</Button>
+        <Space size={8} style={{ flexWrap: 'wrap' }}>
+          <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch} style={isMobile ? { height: 40, minWidth: 80 } : undefined}>查询</Button>
+          <Button onClick={handleReset} style={isMobile ? { height: 40, minWidth: 60 } : undefined}>重置</Button>
           <Tooltip title="刷新">
             <Button
               icon={<ReloadOutlined />}
               onClick={() => load(page, maker, status, dateRange, pageSize)}
               loading={loading}
+              style={isMobile ? { height: 40, width: 40 } : undefined}
             />
           </Tooltip>
         </Space>
@@ -357,30 +359,131 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
 
       <div style={{ flex: 1, overflow: 'auto' }}>
         <Spin spinning={loading}>
-          <Table
-            rowKey="ID"
-            columns={columns}
-            dataSource={data}
-            onRow={(record) => ({
-              onClick: () => setDrawerRecord(record),
-              style: { cursor: 'pointer' },
-            })}
-            pagination={{
-              current: page,
-              pageSize,
-              total,
-              onChange: (p, ps) => {
-                setPage(p)
-                setPageSize(ps)
-                load(p, maker, status, dateRange, ps)
-              },
-              showSizeChanger: true,
-              pageSizeOptions: PAGE_SIZE_OPTIONS,
-              showTotal: (t) => `共 ${t} 条`,
-            }}
-            size="small"
-            scroll={{ x: 'max-content' }}
-          />
+          {isMobile ? (
+            <>
+              {data.length === 0 && !loading ? (
+                <div style={{ textAlign: 'center', padding: '48px 16px', color: '#9ca3af' }}>暂无订单数据</div>
+              ) : (
+                data.map((record, index) => {
+                  const closed = record.DeliveryStatus === '已关闭' || record.DeliveryStatus === '已删除'
+                  return (
+                    <div
+                      key={record.ID}
+                      onClick={() => setDrawerRecord(record)}
+                      style={{
+                        borderRadius: 10,
+                        padding: '10px 12px',
+                        marginBottom: 8,
+                        background: '#fafafa',
+                        border: '1px solid rgba(0,0,0,0.09)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                        <Text strong style={{ fontSize: 13 }}>{record.VouchCode}</Text>
+                        <Tag color={STATUS_COLOR[record.DeliveryStatus] ?? 'default'} style={{ flexShrink: 0, marginRight: 0 }}>
+                          {record.DeliveryStatus}
+                        </Tag>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 12px', fontSize: 12, color: '#374151', marginBottom: 8 }}>
+                        <span><Text type="secondary">客户 </Text>{record.CusName}</span>
+                        <span><Text type="secondary">制单人 </Text>{record.Maker}</span>
+                        <span><Text type="secondary">日期 </Text>{dayjs(record.VouchDate).format('YYYY-MM-DD')}</span>
+                        <span><Text type="secondary">件数 </Text>{record.SumNum}</span>
+                        <span><Text type="secondary">总重 </Text>{record.SumQuantity.toFixed(3)} 吨</span>
+                        <span>
+                          <Text type="secondary">金额 </Text>
+                          <span style={{ color: '#1677ff', fontWeight: 600 }}>
+                            {record.SumMoney.toLocaleString('zh-CN', { minimumFractionDigits: 2 })} 元
+                          </span>
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                        <Text type="secondary" style={{ fontSize: 11, flex: 1 }}>#{(page - 1) * pageSize + index + 1}</Text>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<FileTextOutlined />}
+                          style={{ minWidth: 44, minHeight: 36 }}
+                          onClick={() => setDrawerRecord(record)}
+                        >明细</Button>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          disabled={closed}
+                          style={{ minWidth: 44, minHeight: 36 }}
+                          onClick={() => setEditRecord(record)}
+                        >修改</Button>
+                        <Popconfirm
+                          title="确认关闭此订单？"
+                          description="关闭后不可恢复，请谨慎操作。"
+                          icon={<ExclamationCircleFilled style={{ color: '#faad14' }} />}
+                          okText="确认关闭"
+                          cancelText="取消"
+                          okButtonProps={{ danger: true }}
+                          disabled={closed}
+                          onConfirm={() => handleClose(record.ID)}
+                        >
+                          <Button
+                            type="text"
+                            size="small"
+                            danger={!closed}
+                            disabled={closed}
+                            icon={<StopOutlined />}
+                            style={{ minWidth: 44, minHeight: 36 }}
+                          >关闭</Button>
+                        </Popconfirm>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+              {data.length > 0 && (
+                <div style={{ paddingBottom: 12, display: 'flex', justifyContent: 'center' }}>
+                  <Space>
+                    <Button
+                      size="small"
+                      disabled={page === 1}
+                      onClick={() => { const p = page - 1; setPage(p); load(p, maker, status, dateRange, pageSize) }}
+                    >上一页</Button>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{page} / {Math.ceil(total / pageSize)} 页，共 {total} 条</Text>
+                    <Button
+                      size="small"
+                      disabled={page >= Math.ceil(total / pageSize)}
+                      onClick={() => { const p = page + 1; setPage(p); load(p, maker, status, dateRange, pageSize) }}
+                    >下一页</Button>
+                  </Space>
+                </div>
+              )}
+            </>
+          ) : (
+            <Table
+              rowKey="ID"
+              columns={columns}
+              dataSource={data}
+              onRow={(record) => ({
+                onClick: () => setDrawerRecord(record),
+                style: { cursor: 'pointer' },
+              })}
+              pagination={{
+                current: page,
+                pageSize,
+                total,
+                onChange: (p, ps) => {
+                  setPage(p)
+                  setPageSize(ps)
+                  load(p, maker, status, dateRange, ps)
+                },
+                showSizeChanger: true,
+                pageSizeOptions: PAGE_SIZE_OPTIONS,
+                showTotal: (t) => `共 ${t} 条`,
+              }}
+              size="small"
+              scroll={{ x: 'max-content' }}
+            />
+          )}
         </Spin>
       </div>
 
@@ -404,7 +507,7 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
       >
         {drawerRecord && (
           <>
-            <Descriptions size="small" column={2} bordered>
+            <Descriptions size="small" column={isMobile ? 1 : 2} bordered>
               <Descriptions.Item label="客户">{drawerRecord.CusName}</Descriptions.Item>
               <Descriptions.Item label="是否自提">
                 {drawerRecord.SelfPick ? '是' : '否'}
@@ -415,7 +518,7 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
               </Descriptions.Item>
               <Descriptions.Item label="件数">{drawerRecord.SumNum} 件</Descriptions.Item>
               <Descriptions.Item label="总重量">{drawerRecord.SumQuantity.toFixed(3)} 吨</Descriptions.Item>
-              <Descriptions.Item label="金额" span={2}>
+              <Descriptions.Item label="金额" span={isMobile ? 1 : 2}>
                 <Text style={{ color: '#1677ff', fontWeight: 600 }}>
                   ¥ {drawerRecord.SumMoney.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
                 </Text>
@@ -452,7 +555,7 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
                 <Descriptions.Item label="关闭原因">{drawerRecord.CloseMemo}</Descriptions.Item>
               )}
               {drawerRecord.Memo && (
-                <Descriptions.Item label="备注" span={2}>{drawerRecord.Memo}</Descriptions.Item>
+                <Descriptions.Item label="备注" span={isMobile ? 1 : 2}>{drawerRecord.Memo}</Descriptions.Item>
               )}
             </Descriptions>
 
@@ -460,34 +563,82 @@ export default function OrderListPage({ refreshKey }: { refreshKey?: number }) {
               货物明细（{drawerRecord.DeliveryApplysList.length} 项）
             </Divider>
 
-            <Table
-              rowKey="AutoID"
-              columns={LINE_COLUMNS}
-              dataSource={drawerRecord.DeliveryApplysList}
-              pagination={false}
-              size="small"
-              scroll={{ x: 'max-content' }}
-              summary={(rows) => {
-                const totalQtySum = rows.reduce((s, r) => s + r.Quantity, 0)
-                const totalMoneySum = rows.reduce((s, r) => s + r.Money, 0)
-                return (
-                  <Table.Summary.Row style={{ background: '#fafafa', fontWeight: 600 }}>
-                    <Table.Summary.Cell index={0} colSpan={3}>合计</Table.Summary.Cell>
-                    <Table.Summary.Cell index={3} align="right">
-                      {rows.reduce((s, r) => s + r.Num, 0)}
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={4} align="right">
-                      {totalQtySum.toFixed(3)}
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={5} />
-                    <Table.Summary.Cell index={6} align="right">
-                      {totalMoneySum.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={7} />
-                  </Table.Summary.Row>
-                )
-              }}
-            />
+            {isMobile ? (
+              <>
+                {drawerRecord.DeliveryApplysList.map((line) => (
+                  <div
+                    key={line.AutoID}
+                    style={{
+                      borderRadius: 8,
+                      padding: '8px 12px',
+                      marginBottom: 8,
+                      background: '#fafafa',
+                      border: '1px solid rgba(0,0,0,0.08)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{line.InvName}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 14px', fontSize: 12 }}>
+                      <span><Text type="secondary">规格 </Text>{line.InvStd}</span>
+                      <span><Text type="secondary">品种 </Text>{line.InventoryClass}</span>
+                      <span><Text type="secondary">件数 </Text>{line.Num}</span>
+                      <span><Text type="secondary">重量 </Text>{line.Quantity.toFixed(3)} 吨</span>
+                      <span>
+                        <Text type="secondary">单价 </Text>{line.Price.toLocaleString()} 元/吨
+                      </span>
+                      <span>
+                        <Text type="secondary">金额 </Text>
+                        <span style={{ color: '#1677ff', fontWeight: 600 }}>
+                          {line.Money.toLocaleString('zh-CN', { minimumFractionDigits: 2 })} 元
+                        </span>
+                      </span>
+                      {line.Memo ? <span><Text type="secondary">备注 </Text>{line.Memo}</span> : null}
+                    </div>
+                  </div>
+                ))}
+                {(() => {
+                  const rows = drawerRecord.DeliveryApplysList
+                  const totalQtySum = rows.reduce((s, r) => s + r.Quantity, 0)
+                  const totalMoneySum = rows.reduce((s, r) => s + r.Money, 0)
+                  return (
+                    <div style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: 8, fontSize: 12, fontWeight: 600, display: 'flex', gap: 16 }}>
+                      <span>合计</span>
+                      <span>{rows.reduce((s, r) => s + r.Num, 0)} 件</span>
+                      <span>{totalQtySum.toFixed(3)} 吨</span>
+                      <span style={{ color: '#1677ff' }}>{totalMoneySum.toLocaleString('zh-CN', { minimumFractionDigits: 2 })} 元</span>
+                    </div>
+                  )
+                })()}
+              </>
+            ) : (
+              <Table
+                rowKey="AutoID"
+                columns={LINE_COLUMNS}
+                dataSource={drawerRecord.DeliveryApplysList}
+                pagination={false}
+                size="small"
+                scroll={{ x: 'max-content' }}
+                summary={(rows) => {
+                  const totalQtySum = rows.reduce((s, r) => s + r.Quantity, 0)
+                  const totalMoneySum = rows.reduce((s, r) => s + r.Money, 0)
+                  return (
+                    <Table.Summary.Row style={{ background: '#fafafa', fontWeight: 600 }}>
+                      <Table.Summary.Cell index={0} colSpan={3}>合计</Table.Summary.Cell>
+                      <Table.Summary.Cell index={3} align="right">
+                        {rows.reduce((s, r) => s + r.Num, 0)}
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={4} align="right">
+                        {totalQtySum.toFixed(3)}
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={5} />
+                      <Table.Summary.Cell index={6} align="right">
+                        {totalMoneySum.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={7} />
+                    </Table.Summary.Row>
+                  )
+                }}
+              />
+            )}
           </>
         )}
       </Drawer>

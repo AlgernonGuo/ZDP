@@ -268,6 +268,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
     }
   }
 
+  const isMobile = !screens.sm
+
   const columns: ColumnsType<StockItem> = [
     {
       title: '货名',
@@ -312,6 +314,16 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
       render: (v: number) => v?.toFixed(3),
     },
     {
+      title: '总重(吨)',
+      key: 'totalWeight',
+      width: 80,
+      align: 'right',
+      render: (_: unknown, record) => {
+        const total = record.Num * record.NumWeight
+        return <Text type="secondary" style={{ fontSize: 12 }}>{total.toFixed(2)}</Text>
+      },
+    },
+    {
       title: '单价(元/吨)',
       dataIndex: 'UPrice1',
       key: 'UPrice1',
@@ -347,6 +359,103 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
     },
   ]
 
+  const renderMobileStockList = () => {
+    if (!hasSearched) {
+      return (
+        <div style={{ textAlign: 'center', padding: '48px 16px', color: '#9ca3af' }}>
+          请选择品种和规格后点击查询
+        </div>
+      )
+    }
+    if (stockList.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '48px 16px', color: '#9ca3af' }}>
+          暂无库存数据
+        </div>
+      )
+    }
+    const totalNum = stockList.reduce((s, r) => s + r.Num, 0)
+    const totalWeight = stockList.reduce((s, r) => s + r.Num * r.NumWeight, 0)
+    return (
+      <>
+        {stockList.map((record) => {
+          const key = String(record.AutoID)
+          const isInStaging = stagingKeys.has(key)
+          const isAdding = addingKeys.has(key)
+          const totalW = record.Num * record.NumWeight
+          return (
+            <div
+              key={key}
+              style={{
+                borderRadius: 10,
+                marginBottom: 8,
+                background: isInStaging ? '#f0fdf4' : '#ffffff',
+                border: isInStaging ? '1px solid #86efac' : '1px solid rgba(0,0,0,0.1)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                overflow: 'hidden',
+              }}
+            >
+              {/* 卡片主体：货名 + 参数网格 */}
+              <div style={{ padding: '10px 12px 8px' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', lineHeight: 1.5, marginBottom: 6, wordBreak: 'break-all' }}>
+                  {record.OnLineInvName}
+                  <Text type="secondary" style={{ fontSize: 11, fontWeight: 400, marginLeft: 6 }}>{record.WhName}</Text>
+                </div>
+                {/* 2列参数网格 */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 0', fontSize: 12 }}>
+                  <span><Text type="secondary" style={{ fontSize: 11 }}>规格　</Text>{record.Standard}</span>
+                  <span><Text type="secondary" style={{ fontSize: 11 }}>壁厚　</Text>{record.Wallthickness || '—'}</span>
+                  <span><Text type="secondary" style={{ fontSize: 11 }}>库存　</Text><strong>{record.Num}</strong> 件</span>
+                  <span><Text type="secondary" style={{ fontSize: 11 }}>总重　</Text>{totalW.toFixed(2)} 吨</span>
+                  <span style={{ gridColumn: '1 / -1' }}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>单价　</Text>
+                    <span style={{ color: '#e11d48', fontWeight: 600, fontSize: 13 }}>{record.UPrice1?.toFixed(2)}</span>
+                    <Text type="secondary" style={{ fontSize: 11 }}> 元/吨</Text>
+                    <Text type="secondary" style={{ fontSize: 11, marginLeft: 12 }}>单件重 </Text>
+                    <span style={{ fontSize: 12 }}>{record.NumWeight?.toFixed(3)} 吨</span>
+                  </span>
+                </div>
+              </div>
+              {/* 底部操作行 */}
+              <div
+                style={{
+                  borderTop: isInStaging ? '1px solid #bbf7d0' : '1px solid rgba(0,0,0,0.06)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: 40,
+                  cursor: isInStaging ? 'default' : 'pointer',
+                  background: isInStaging ? '#dcfce7' : 'transparent',
+                  transition: 'background 0.15s',
+                }}
+                onClick={isInStaging || isAdding ? undefined : () => handleAddToStaging(record)}
+              >
+                {isInStaging ? (
+                  <span style={{ color: '#16a34a', fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <CheckCircleFilled style={{ fontSize: 14 }} />
+                    已加入暂存区
+                  </span>
+                ) : isAdding ? (
+                  <span style={{ color: '#1677ff', fontSize: 12 }}>加入中…</span>
+                ) : (
+                  <span style={{ color: '#1677ff', fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <PlusOutlined style={{ fontSize: 13 }} />
+                    加入暂存区
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        <div style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: 8, fontSize: 12, color: '#374151', display: 'flex', gap: 16 }}>
+          <span>本页合计：</span>
+          <span><strong>{totalNum}</strong> 件</span>
+          <span>总重 <strong>{totalWeight.toFixed(2)}</strong> 吨</span>
+        </div>
+      </>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {contextHolder}
@@ -354,7 +463,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
       {/* 筛选区 */}
       <div
         style={{
-          padding: '14px 16px 12px',
+          padding: isMobile ? '10px 12px 10px' : '14px 16px 12px',
           borderBottom: '1px solid rgba(0,0,0,0.06)',
           flexShrink: 0,
           display: 'flex',
@@ -383,45 +492,51 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 160px', minWidth: 130 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>品种</Text>
-          <Select
-            placeholder="选择品种"
-            style={{ width: '100%' }}
-            value={selectedClass || undefined}
-            onChange={handleClassChange}
-            loading={false}
-            showSearch
-            optionFilterProp="label"
-            disabled={!selectedCusCode}
-            options={classList.map((c) => ({ value: c.InvCName, label: c.InvCName }))}
-          />
+          <Tooltip title={!selectedCusCode ? '请先选择客户' : undefined}>
+            <Select
+              placeholder="选择品种"
+              style={{ width: '100%' }}
+              value={selectedClass || undefined}
+              onChange={handleClassChange}
+              loading={false}
+              showSearch
+              optionFilterProp="label"
+              disabled={!selectedCusCode}
+              options={classList.map((c) => ({ value: c.InvCName, label: c.InvCName }))}
+            />
+          </Tooltip>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 160px', minWidth: 130 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>规格</Text>
-          <Select
-            placeholder="选择规格"
-            style={{ width: '100%' }}
-            value={selectedStandard || undefined}
-            onChange={handleStandardChange}
-            disabled={!selectedCusCode || !selectedClass}
-            showSearch
-            optionFilterProp="label"
-            options={standards.map((s) => ({ value: s, label: s }))}
-          />
+          <Tooltip title={!selectedClass ? '请先选择品种' : undefined}>
+            <Select
+              placeholder="选择规格"
+              style={{ width: '100%' }}
+              value={selectedStandard || undefined}
+              onChange={handleStandardChange}
+              disabled={!selectedCusCode || !selectedClass}
+              showSearch
+              optionFilterProp="label"
+              options={standards.map((s) => ({ value: s, label: s }))}
+            />
+          </Tooltip>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 120px', minWidth: 100 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>壁厚</Text>
-          <Select
-            placeholder="可选"
-            style={{ width: '100%' }}
-            value={selectedWallThickness || undefined}
-            onChange={handleWallThicknessChange}
-            disabled={!selectedCusCode || wallThicknesses.length === 0}
-            allowClear
-            onClear={() => handleWallThicknessChange('')}
-            options={wallThicknesses.map((wt) => ({ value: wt, label: wt }))}
-          />
+          <Tooltip title={wallThicknesses.length === 0 && selectedStandard ? '暂无壁厚选项' : undefined}>
+            <Select
+              placeholder="可选"
+              style={{ width: '100%' }}
+              value={selectedWallThickness || undefined}
+              onChange={handleWallThicknessChange}
+              disabled={!selectedCusCode || wallThicknesses.length === 0}
+              allowClear
+              onClear={() => handleWallThicknessChange('')}
+              options={wallThicknesses.map((wt) => ({ value: wt, label: wt }))}
+            />
+          </Tooltip>
         </div>
 
         <Button
@@ -430,24 +545,27 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
           onClick={handleSearch}
           loading={searching}
           disabled={!selectedCusCode || !selectedClass || !selectedStandard}
-          style={{ width: screens.sm ? 'auto' : '100%' }}
+          style={{ width: isMobile ? '100%' : 'auto', height: isMobile ? 44 : undefined }}
         >
           查询库存
         </Button>
       </div>
 
-      {/* 结果表格 */}
-      <div style={{ flex: 1, overflow: 'auto', padding: screens.sm ? 16 : 10 }}>
+      {/* 结果区 */}
+      <div style={{ flex: 1, overflow: 'auto', padding: isMobile ? '10px 12px' : (screens.sm ? 16 : 10) }}>
         {searching ? (
           <div style={{ textAlign: 'center', paddingTop: 60 }}>
             <Spin size="large" tip="查询中..." />
           </div>
+        ) : isMobile ? (
+          renderMobileStockList()
         ) : (
           <Table
             columns={columns}
             dataSource={stockList}
             rowKey={(r) => String(r.AutoID)}
             size="small"
+            rowClassName={(record) => stagingKeys.has(String(record.AutoID)) ? 'in-staging-row' : ''}
             pagination={{
               pageSize: 20,
               showSizeChanger: false,
@@ -457,6 +575,23 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onAddToStaging, stagingKeys, 
               emptyText: hasSearched ? '暂无库存数据' : '请选择品种和规格后点击查询',
             }}
             scroll={{ x: 'max-content' }}
+            summary={(rows) => {
+              if (rows.length === 0) return null
+              const totalNum = rows.reduce((s, r) => s + r.Num, 0)
+              const totalWeight = rows.reduce((s, r) => s + r.Num * r.NumWeight, 0)
+              return (
+                <Table.Summary.Row style={{ background: '#f8fafc', fontWeight: 600 }}>
+                  <Table.Summary.Cell index={0} colSpan={3} align="right">
+                    <Text type="secondary" style={{ fontSize: 12 }}>本页合计</Text>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={3} align="right">{totalNum}</Table.Summary.Cell>
+                  <Table.Summary.Cell index={4} />
+                  <Table.Summary.Cell index={5} align="right">{totalWeight.toFixed(2)}</Table.Summary.Cell>
+                  <Table.Summary.Cell index={6} />
+                  <Table.Summary.Cell index={7} />
+                </Table.Summary.Row>
+              )
+            }}
           />
         )}
       </div>

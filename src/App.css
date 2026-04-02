@@ -1,5 +1,15 @@
 /* 全局样式补丁 */
 
+:root {
+  --zdp-primary: #1677ff;
+  --zdp-text: #111827;
+  --zdp-text-secondary: #6b7280;
+  --zdp-border: rgba(0,0,0,0.12);
+  --zdp-bg-alt: #f8fafc;
+  --zdp-success: #16a34a;
+  --zdp-danger: #e11d48;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -19,6 +29,27 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* 表格斑马纹 */
+.ant-table-wrapper .ant-table-tbody > tr:nth-child(even) > td {
+  background: #fafafa;
+}
+
+/* hover 过渡更流畅 */
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  transition: background 0.1s;
+}
+
+/* 已在暂存区行高亮 */
+.in-staging-row > td {
+  background: #f0fdf4 !important;
+}
+.in-staging-row > td:first-child {
+  box-shadow: inset 3px 0 0 #16a34a;
+}
+.in-staging-row:hover > td {
+  background: #dcfce7 !important;
+}
+
 /* 滚动条 */
 ::-webkit-scrollbar {
   width: 5px;
@@ -36,6 +67,24 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0,0,0,0.25);
+}
+
+/* Modal/Drawer 遮罩模糊 */
+.ant-modal-mask,
+.ant-drawer-mask {
+  backdrop-filter: blur(2px);
+}
+
+/* Input focus 过渡更流畅 */
+.ant-input:focus,
+.ant-input-focused {
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+/* Select 选项高度统一 */
+.ant-select-item {
+  min-height: 32px;
+  line-height: 32px;
 }
 
 /* 暂存区卡片入场动画 */
@@ -147,4 +196,51 @@ body {
 
 .snatch-card-success {
   animation: snatch-success-glow 0.8s ease-out both;
+}
+
+/* 打印时隐藏导航 */
+@media print {
+  .ant-layout-header {
+    display: none;
+  }
+}
+
+/* 移动端触摸优化 */
+@media (max-width: 575px) {
+  /* 消除 300ms 点击延迟 */
+  * {
+    touch-action: manipulation;
+  }
+
+  /* 所有按钮最小触摸区域 44px */
+  .ant-btn {
+    min-height: 36px;
+  }
+
+  /* Select / Input 高度 */
+  .ant-select-selector,
+  .ant-input {
+    min-height: 36px !important;
+  }
+
+  /* 分页按钮更易点击 */
+  .ant-pagination-item,
+  .ant-pagination-prev,
+  .ant-pagination-next {
+    min-width: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+  }
+
+  /* Segmented 选项高度 */
+  .ant-segmented-item {
+    min-height: 34px;
+    line-height: 34px;
+  }
+
+  /* Popconfirm 按钮更易点击 */
+  .ant-popconfirm .ant-btn {
+    min-height: 34px;
+    padding: 0 12px;
+  }
 }

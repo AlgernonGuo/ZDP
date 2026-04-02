@@ -13,6 +13,7 @@ import {
   Divider,
   Switch,
   Space,
+  Modal,
 } from 'antd'
 import { DeleteOutlined, SendOutlined, ThunderboltOutlined, ExclamationCircleFilled, ClockCircleOutlined, WarningOutlined, LoadingOutlined } from '@ant-design/icons'
 import { buildOrderPayload, createDeliveryApply } from '../api/order'
@@ -112,7 +113,26 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
         messageApi.error(`${item.OnLineInvName} 的件数不能超过库存 ${item.Num} 件`); return
       }
     }
-    if (snatchMode) { handleSnatch() } else { await handleNormalSubmit() }
+    if (snatchMode) {
+      handleSnatch()
+    } else {
+      Modal.confirm({
+        title: orderId ? '确认保存修改？' : '确认提交提货申请？',
+        content: (
+          <div>
+            <div>共 <strong>{items.length}</strong> 种货品</div>
+            <div style={{ marginTop: 4 }}>
+              预估金额：<span style={{ color: '#e11d48', fontWeight: 600 }}>
+                ¥ {totalAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+        ),
+        okText: '确认提交',
+        cancelText: '再看看',
+        onOk: handleNormalSubmit,
+      })
+    }
   }
 
   const handleNormalSubmit = async () => {
@@ -306,76 +326,101 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
               key={item.key}
               className={item.key === newKey ? 'staging-item-new' : undefined}
               style={{
-                borderRadius: 10, padding: '10px 12px', marginBottom: 8,
-                background: 'rgb(250,250,250)',
-                border: '1px solid rgba(0,0,0,0.09)',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                borderRadius: 10,
+                marginBottom: 8,
+                background: '#ffffff',
+                border: '1px solid rgba(0,0,0,0.1)',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                overflow: 'hidden',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#262626', wordBreak: 'break-all', lineHeight: '1.5' }}>
+              {/* 卡片主体 */}
+              <div style={{ padding: '10px 12px 8px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, marginBottom: 6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#262626', wordBreak: 'break-all', lineHeight: '1.5', flex: 1 }}>
                     {item.OnLineInvName}
+                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 400, marginLeft: 6 }}>
+                      {item.WhName}{item.Wallthickness ? ` · 壁厚 ${item.Wallthickness}` : ''}
+                    </Text>
                   </div>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    {item.WhName}{item.Wallthickness ? ` · 壁厚 ${item.Wallthickness}` : ''}
-                  </Text>
+                  <Popconfirm
+                    title="移除该货品？"
+                    icon={<ExclamationCircleFilled style={{ color: '#faad14' }} />}
+                    okText="移除"
+                    okButtonProps={{ danger: true }}
+                    cancelText="取消"
+                    onConfirm={() => onRemoveItem(item.key)}
+                  >
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      style={{
+                        flexShrink: 0,
+                        color: deleteHover[item.key] ? '#ef4444' : '#d1d5db',
+                        transition: 'color 0.15s',
+                        padding: '0 4px',
+                      }}
+                      onMouseEnter={() => setDeleteHover((prev) => ({ ...prev, [item.key]: true }))}
+                      onMouseLeave={() => setDeleteHover((prev) => ({ ...prev, [item.key]: false }))}
+                    />
+                  </Popconfirm>
                 </div>
-                <Popconfirm
-                  title="移除该货品？"
-                  icon={<ExclamationCircleFilled style={{ color: '#faad14' }} />}
-                  okText="移除"
-                  okButtonProps={{ danger: true }}
-                  cancelText="取消"
-                  onConfirm={() => onRemoveItem(item.key)}
-                >
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<DeleteOutlined />}
-                    style={{
-                      flexShrink: 0,
-                      color: deleteHover[item.key] ? '#ef4444' : '#d1d5db',
-                      transition: 'color 0.15s',
-                      padding: '0 4px',
-                    }}
-                    onMouseEnter={() => setDeleteHover((prev) => ({ ...prev, [item.key]: true }))}
-                    onMouseLeave={() => setDeleteHover((prev) => ({ ...prev, [item.key]: false }))}
-                  />
-                </Popconfirm>
-              </div>
-              <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
-                <Text style={{ fontSize: 12 }}>
-                  <Text type="secondary" style={{ fontSize: 11 }}>单价 </Text>
-                  <Text style={{ color: '#e11d48', fontSize: 13 }}>{item.UPrice1.toFixed(2)}</Text>
-                  <Text type="secondary" style={{ fontSize: 11 }}> 元/吨</Text>
-                </Text>
-                <Text style={{ fontSize: 12 }}>
-                  <Text type="secondary" style={{ fontSize: 11 }}>库存 </Text>
-                  {item.Num}
-                  <Text type="secondary" style={{ fontSize: 11 }}> 件</Text>
-                </Text>
-                <Text style={{ fontSize: 12 }}>
-                  <Text type="secondary" style={{ fontSize: 11 }}>单件重 </Text>
-                  {item.NumWeight.toFixed(3)}
-                  <Text type="secondary" style={{ fontSize: 11 }}> 吨</Text>
-                </Text>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                  <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>件数</Text>
-                  <InputNumber
-                    size="small" min={1} max={item.Num} value={item.userNum}
-                    onChange={(val) => { if (val != null) onUpdateItem(item.key, { userNum: val }) }}
-                    style={{ width: 72 }}
+                {/* 2列参数网格，与查询列表卡片对齐 */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 0', fontSize: 12, marginBottom: 8 }}>
+                  <span>
+                    <Text type="secondary" style={{ fontSize: 11 }}>库存　</Text>{item.Num} 件
+                  </span>
+                  <span>
+                    <Text type="secondary" style={{ fontSize: 11 }}>单件重　</Text>{item.NumWeight.toFixed(3)} 吨
+                  </span>
+                  <span style={{ gridColumn: '1 / -1' }}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>单价　</Text>
+                    <span style={{ color: '#e11d48', fontWeight: 600, fontSize: 13 }}>{item.UPrice1.toFixed(2)}</span>
+                    <Text type="secondary" style={{ fontSize: 11 }}> 元/吨</Text>
+                  </span>
+                </div>
+                {/* 件数 + 备注输入行 */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>件数</Text>
+                    <InputNumber
+                      size="small" min={1} max={item.Num} value={item.userNum}
+                      onChange={(val) => { if (val != null) onUpdateItem(item.key, { userNum: val }) }}
+                      style={{ width: 72 }}
+                    />
+                  </div>
+                  <Input
+                    size="small" value={item.remark} placeholder="行备注（可选）"
+                    onChange={(e) => onUpdateItem(item.key, { remark: e.target.value })}
+                    style={{ flex: 1 }}
                   />
                 </div>
-                <Input
-                  size="small" value={item.remark} placeholder="行备注（可选）"
-                  onChange={(e) => onUpdateItem(item.key, { remark: e.target.value })}
-                  style={{ flex: 1 }}
-                />
               </div>
+              {/* 底部小计行 */}
+              {item.userNum > 0 && (() => {
+                const itemWeight = item.userNum * item.NumWeight
+                const itemAmount = itemWeight * item.UPrice1
+                return (
+                  <div style={{
+                    borderTop: '1px solid rgba(0,0,0,0.06)',
+                    padding: '6px 12px',
+                    background: '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 12,
+                    color: '#6b7280',
+                    flexWrap: 'wrap',
+                  }}>
+                    <span>{item.userNum} 件 × {item.NumWeight.toFixed(3)} 吨 = {itemWeight.toFixed(3)} 吨</span>
+                    <span>×</span>
+                    <span>{item.UPrice1.toLocaleString('zh-CN', { minimumFractionDigits: 2 })} 元/吨</span>
+                    <span>=</span>
+                    <span style={{ color: '#e11d48', fontWeight: 600, marginLeft: 2 }}>{itemAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })} 元</span>
+                  </div>
+                )
+              })()}
             </div>
           ))
         )}
