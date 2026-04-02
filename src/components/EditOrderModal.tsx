@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Modal, Typography, Tag, Grid } from 'antd'
 import SearchPanel from './SearchPanel'
 import StagingPanel from './StagingPanel'
-import type { OrderListItem, StagingItem } from '../types'
+import type { OrderListItem, StagingItem, InventoryClass } from '../types'
+import { getInventoryClassList } from '../api/inventory'
 
 const { Text } = Typography
 
@@ -47,6 +48,13 @@ function lineItemsToStaging(record: OrderListItem): StagingItem[] {
 export default function EditOrderModal({ record, onClose, onSuccess }: EditOrderModalProps) {
   const screens = Grid.useBreakpoint()
   const [stagingItems, setStagingItems] = useState<StagingItem[]>([])
+  const [classList, setClassList] = useState<InventoryClass[]>([])
+
+  useEffect(() => {
+    getInventoryClassList().then((res) => {
+      if (res.result) setClassList(res.data)
+    }).catch(() => {})
+  }, [])
 
   // 每次打开（record 变化）时重置暂存区
   useEffect(() => {
@@ -111,6 +119,7 @@ export default function EditOrderModal({ record, onClose, onSuccess }: EditOrder
               onAddToStaging={handleAddToStaging}
               stagingKeys={stagingKeys}
               onCusChange={() => {}}
+              classList={classList}
             />
           </div>
 
