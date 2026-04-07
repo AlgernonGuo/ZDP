@@ -10,6 +10,7 @@ import OrderListPage from './components/OrderListPage'
 import LoginPage from './components/LoginPage'
 import AutoSnatchPanel from './components/AutoSnatchPanel'
 import { isAuthenticated, clearAuthConfig, AUTH_CONFIG, authBus } from './api/client'
+import { getRegionByKey } from './api/regions'
 import { getInventoryClassList } from './api/inventory'
 import type { StagingItem, InventoryClass } from './types'
 import './App.css'
@@ -257,6 +258,20 @@ function App() {
 
         {/* 用户信息 + 退出 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          {AUTH_CONFIG.regionKey && screens.md && (
+            <Text
+              style={{
+                fontSize: isCompactHeader ? 11 : 12,
+                color: '#fff',
+                background: '#1677ff',
+                borderRadius: 4,
+                padding: '1px 7px',
+                flexShrink: 0,
+              }}
+            >
+              {getRegionByKey(AUTH_CONFIG.regionKey)?.label ?? AUTH_CONFIG.regionKey}
+            </Text>
+          )}
           {AUTH_CONFIG.UserName && screens.md && (
             <Text
               ellipsis

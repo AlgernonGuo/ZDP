@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Form, Input, Button, message, Typography, Checkbox } from 'antd'
-import { LockOutlined, PhoneOutlined } from '@ant-design/icons'
+import { Card, Form, Input, Button, message, Typography, Checkbox, Select } from 'antd'
+import { LockOutlined, PhoneOutlined, GlobalOutlined } from '@ant-design/icons'
 import { loginByPhone, getBase } from '../api/auth'
-import { setAuthConfig, saveCredentials, loadCredentials, clearCredentials } from '../api/client'
+import { setAuthConfig, saveCredentials, loadCredentials, clearCredentials, AUTH_CONFIG } from '../api/client'
+import { REGIONS } from '../api/regions'
 
 const { Title, Text } = Typography
 
@@ -11,6 +12,7 @@ interface LoginPageProps {
 }
 
 interface LoginFormValues {
+  region: string
   phone: string
   password: string
   remember: boolean
@@ -21,9 +23,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false)
   const [form] = Form.useForm<LoginFormValues>()
 
-  // 初始化时读取已保存的账号密码
+  // 初始化时读取已保存的账号密码（需先知道地区才能读对应凭证）
   useEffect(() => {
-    const cred = loadCredentials()
+    // 默认选中第一个地区，并尝试加载该地区保存的凭证
+    const defaultRegion = REGIONS[0].key
+    form.setFieldValue('region', defaultRegion)
+    const cred = loadCredentials(defaultRegion)
     if (cred) {
       form.setFieldsValue({ phone: cred.phone, password: cred.password, remember: true })
     } else {
@@ -31,17 +36,28 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   }, [form])
 
+  // 切换地区时重新加载该地区的凭证
+  const handleRegionChange = (regionKey: string) => {
+    form.setFieldsValue({ phone: '', password: '', remember: false })
+    const cred = loadCredentials(regionKey)
+    if (cred) {
+      form.setFieldsValue({ phone: cred.phone, password: cred.password, remember: true })
+    }
+  }
+
   const handleSubmit = async (values: LoginFormValues) => {
     setLoading(true)
     try {
+      // 登录前先把 regionKey 写入 AUTH_CONFIG，使 axios 拦截器能选到正确的 baseURL
+      AUTH_CONFIG.regionKey = values.region
       const res = await loginByPhone(values.phone, values.password)
 
       if (res.result && res.wxTokenID) {
-        // 根据"记住密码"决定是否保存
+        // 根据"记住密码"决定是否保存（按地区隔离）
         if (values.remember) {
-          saveCredentials(values.phone, values.password)
+          saveCredentials(values.phone, values.password, values.region)
         } else {
-          clearCredentials()
+          clearCredentials(values.region)
         }
 
         // 获取用户基础信息（UserName）
@@ -53,7 +69,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           }
         } catch { /* 取不到用户名不影响登录 */ }
 
-        setAuthConfig({ WXTokenID: res.wxTokenID, LoginID: res.loginID ?? res.wxTokenID, CusCode: '', CusName: '', UserName: userName })
+        setAuthConfig({
+          WXTokenID: res.wxTokenID,
+          LoginID: res.loginID ?? res.wxTokenID,
+          CusCode: '',
+          CusName: '',
+          UserName: userName,
+          regionKey: values.region,
+        })
         messageApi.success('登录成功')
         onLoginSuccess()
       } else {
@@ -103,6 +126,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </div>
 
         <Form form={form} layout="vertical" onFinish={handleSubmit} requiredMark={false}>
+          <Form.Item
+            name="region"
+            label="地区"
+            style={{ marginBottom: 20 }}
+            rules={[{ required: true, message: '请选择地区' }]}
+          >
+            <Select
+              prefix={<GlobalOutlined style={{ color: '#9ca3af' }} />}
+              size="large"
+              onChange={handleRegionChange}
+              options={REGIONS.map((r) => ({ value: r.key, label: r.label }))}
+            />
+          </Form.Item>
+
           <Form.Item
             name="phone"
             label="手机号"

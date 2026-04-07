@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
+import { REGIONS, getRegionByKey } from './regions'
 
 // ===== 运行时认证配置 =====
 export interface AuthConfig {
@@ -8,10 +9,15 @@ export interface AuthConfig {
   CusCode: string
   CusName: string
   UserName: string
+  regionKey: string
 }
 
 const AUTH_KEY = 'zdp_auth'
-const CRED_KEY = 'zdp_cred'
+
+// 凭证按地区隔离，key 格式：zdp_cred_tj / zdp_cred_sx / zdp_cred_hd
+function credKey(regionKey: string) {
+  return `zdp_cred_${regionKey || 'default'}`
+}
 
 function loadFromStorage(): AuthConfig | null {
   try {
@@ -28,6 +34,7 @@ export const AUTH_CONFIG: AuthConfig = loadFromStorage() ?? {
   CusCode: '',
   CusName: '',
   UserName: '',
+  regionKey: '',
 }
 
 export function setAuthConfig(config: AuthConfig) {
@@ -41,27 +48,28 @@ export function clearAuthConfig() {
   AUTH_CONFIG.CusCode = ''
   AUTH_CONFIG.CusName = ''
   AUTH_CONFIG.UserName = ''
+  AUTH_CONFIG.regionKey = ''
   localStorage.removeItem(AUTH_KEY)
 }
 
 // ===== 记住密码 =====
 export interface SavedCred { phone: string; password: string }
 
-export function saveCredentials(phone: string, password: string) {
-  localStorage.setItem(CRED_KEY, JSON.stringify({ phone, password }))
+export function saveCredentials(phone: string, password: string, regionKey: string) {
+  localStorage.setItem(credKey(regionKey), JSON.stringify({ phone, password }))
 }
 
-export function loadCredentials(): SavedCred | null {
+export function loadCredentials(regionKey: string): SavedCred | null {
   try {
-    const raw = localStorage.getItem(CRED_KEY)
+    const raw = localStorage.getItem(credKey(regionKey))
     return raw ? (JSON.parse(raw) as SavedCred) : null
   } catch {
     return null
   }
 }
 
-export function clearCredentials() {
-  localStorage.removeItem(CRED_KEY)
+export function clearCredentials(regionKey: string) {
+  localStorage.removeItem(credKey(regionKey))
 }
 
 export function isAuthenticated(): boolean {
@@ -69,13 +77,10 @@ export function isAuthenticated(): boolean {
 }
 
 // ===== axios 实例 =====
-// 开发时（Vite dev server）baseURL 为空，走 proxy；生产时（Tauri 桌面）直接请求后端
-// 生产环境通过 axios config.env.fetch 注入 tauriFetch，走 Rust 层发请求，绕过 CORS
-// 注意：不能替换 globalThis.fetch，否则 invoke() 的 IPC 通信会无限递归
-const BASE_URL = import.meta.env.DEV ? '' : 'http://qaweixin.flsoft.cc'
-
+// DEV 模式：baseURL 为空，走 Vite proxy（proxy target 固定天津，调试其他地区需手动改 vite.config.ts）
+// PROD 模式：request interceptor 根据 AUTH_CONFIG.regionKey 动态设置 baseURL，走 tauriFetch
 const client = axios.create({
-  baseURL: BASE_URL,
+  baseURL: '',
   timeout: 15000,
   withCredentials: true,
   adapter: 'fetch',
@@ -88,6 +93,11 @@ const client = axios.create({
 
 // 注入时间戳防 GET 缓存
 client.interceptors.request.use((config) => {
+  // PROD：根据当前登录地区动态设置 baseURL
+  if (import.meta.env.PROD) {
+    const region = getRegionByKey(AUTH_CONFIG.regionKey) ?? REGIONS[0]
+    config.baseURL = region.baseURL
+  }
   if (config.method?.toLowerCase() === 'get') {
     config.params = { ...config.params, _: Date.now() }
   }
