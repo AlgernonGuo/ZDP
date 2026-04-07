@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Layout, Typography, Button, Tooltip, Menu, ConfigProvider, Popover, Grid, Segmented, Divider } from 'antd'
+import { Layout, Typography, Button, Tooltip, Menu, ConfigProvider, App as AntdApp, Popover, Grid, Segmented, Divider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import 'dayjs/locale/zh-cn'
 import dayjs from 'dayjs'
@@ -210,6 +210,7 @@ function App() {
         },
       }}
     >
+    <AntdApp>
       <Layout style={{ minHeight: '100vh', height: '100dvh', overflow: 'hidden' }}>
       {/* 顶部 Header */}
         <Header
@@ -495,6 +496,7 @@ function App() {
         </div>
       </Content>
     </Layout>
+    </AntdApp>
     </ConfigProvider>
   )
 }

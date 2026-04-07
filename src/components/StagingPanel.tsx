@@ -5,7 +5,7 @@ import {
   Input,
   Typography,
   Popconfirm,
-  message,
+  App,
   Empty,
   Statistic,
   Row,
@@ -13,7 +13,6 @@ import {
   Divider,
   Switch,
   Space,
-  Modal,
 } from 'antd'
 import { DeleteOutlined, SendOutlined, ThunderboltOutlined, ExclamationCircleFilled, ClockCircleOutlined, WarningOutlined, LoadingOutlined } from '@ant-design/icons'
 import { buildOrderPayload, createDeliveryApply } from '../api/order'
@@ -46,7 +45,7 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
   initialMemo,
   onSubmitSuccess,
 }) => {
-  const [messageApi, contextHolder] = message.useMessage()
+  const { message: messageApi, modal } = App.useApp()
   const [orderMemo, setOrderMemo] = useState(initialMemo ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [snatching, setSnatching] = useState(false)
@@ -116,7 +115,7 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
     if (snatchMode) {
       handleSnatch()
     } else {
-      Modal.confirm({
+      modal.confirm({
         title: orderId ? '确认保存修改？' : '确认提交提货申请？',
         content: (
           <div>
@@ -276,7 +275,6 @@ const StagingPanel: React.FC<StagingPanelProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {contextHolder}
 
       {/* 顶部操作条 */}
       {items.length > 0 && (
